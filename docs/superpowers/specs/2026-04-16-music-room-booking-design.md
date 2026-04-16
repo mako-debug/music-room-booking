@@ -16,6 +16,7 @@
 | 取消預約 | 可以（本人或管理員） |
 | 重複排課 | 支援每週重複（2~4 週） |
 | 存取控制 | 所有頁面需登入（`/login` 除外） |
+| 時區 | Asia/Taipei（UTC+8），所有日期時間皆為台灣時間 |
 
 ## 系統架構
 
@@ -92,7 +93,16 @@ Firebase
 - 日檢視：`where("date", "==", "2026-04-20")` 取回當天全部教室預約
 - 週檢視：`where("date", ">=", startDate).where("date", "<=", endDate).where("roomId", "==", "room-1")`
 
-**重複排課：** 一次建立 N 筆 booking，共用 `repeatGroupId`。取消時可選「只取消這次」或「取消此週之後全部」。
+**重複排課：** 一次建立 N 筆 booking，共用 `repeatGroupId`。取消時可選「只取消這次」或「取消此週之後全部」（client-side batch delete，每筆各自通過 Security Rules 驗證）。
+
+**衝突防護：** 建立預約時使用 Firestore Transaction：先查詢目標教室+時段是否已有預約，無衝突才寫入。避免兩人同時預約同一時段的 race condition。
+
+**必要 Composite Index：**
+
+| Collection | Fields | 用途 |
+|------------|--------|------|
+| `bookings` | `date` ASC, `roomId` ASC | 週檢視查詢 |
+| `bookings` | `repeatGroupId` ASC, `date` ASC | 批次取消重複排課 |
 
 ## 頁面設計
 
@@ -100,7 +110,7 @@ Firebase
 
 - 頂部「新米蘭音樂教室」標題
 - Email + 密碼表單 + 登入按鈕
-- 初期不做註冊功能，由管理員在 Firebase Console 手動建帳號
+- 初期不做註冊功能，由管理員在 Firebase Console 手動建帳號（同時在 Firestore `users` collection 建立對應文件並設定 `role`）
 
 ### 首頁日曆 `/`
 
@@ -173,6 +183,9 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && getUserRole() in ['admin', 'teacher'];
+      allow update: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || getUserRole() == 'admin');
       allow delete: if request.auth != null
         && (resource.data.userId == request.auth.uid
             || getUserRole() == 'admin');
@@ -180,6 +193,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if request.auth != null;
+      // users doc 由管理員透過 Firebase Console 或 Admin SDK 建立
+      // client-side 不開放 write，避免使用者自行修改角色
     }
   }
 }
@@ -242,7 +257,7 @@ music-room-booking/
 
 | 服務 | 方案 | 月費 | 限制 |
 |------|------|------|------|
-| Firebase Auth | Spark (Free) | $0 | 無限用戶 |
+| Firebase Auth | Spark (Free) | $0 | 50,000 MAU（音樂教室綽綽有餘） |
 | Firestore | Spark (Free) | $0 | 1GB 儲存 / 5萬次讀取/日 |
 | Vercel | Hobby (Free) | $0 | 100GB 流量/月 |
 | **總計** | | **$0** | |
