@@ -237,7 +237,6 @@ function AdminContent() {
                 onChange={(e) => setRole(e.target.value as UserRole)}
                 className="w-full border rounded px-3 py-2 text-sm text-gray-900"
               >
-                <option value="admin">管理員（可預約 + 管理帳號）</option>
                 <option value="teacher">老師（可預約）</option>
                 <option value="student">學生（僅查看）</option>
               </select>
