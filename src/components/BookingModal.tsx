@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { createBooking, createRepeatBookings } from '@/lib/bookings';
-import { BookingInput } from '@/types';
+import { AppUser, BookingInput } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface BookingModalProps {
@@ -13,6 +13,7 @@ interface BookingModalProps {
   startTime: string;
   onClose: () => void;
   onSuccess: () => void;
+  teachers?: AppUser[];
 }
 
 const DURATION_OPTIONS = [
@@ -43,8 +44,11 @@ export function BookingModal({
   startTime,
   onClose,
   onSuccess,
+  teachers,
 }: BookingModalProps) {
   const { appUser } = useAuth();
+  const isAdmin = appUser?.role === 'admin';
+  const [selectedTeacherId, setSelectedTeacherId] = useState(appUser?.uid || '');
   const [duration, setDuration] = useState(60);
   const [studentName, setStudentName] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -68,13 +72,19 @@ export function BookingModal({
     setError('');
 
     try {
+      const selectedTeacher = isAdmin && teachers
+        ? teachers.find((t) => t.uid === selectedTeacherId)
+        : null;
+      const bookingUserId = selectedTeacher?.uid || appUser.uid;
+      const bookingUserName = selectedTeacher?.displayName || appUser.displayName;
+
       const baseInput: BookingInput = {
         roomId,
         date,
         startTime,
         endTime,
-        userId: appUser.uid,
-        userName: appUser.displayName,
+        userId: bookingUserId,
+        userName: bookingUserName,
         studentName,
         ...(purpose ? { purpose } : {}),
         ...(repeat ? { repeatGroupId: uuidv4() } : {}),
@@ -135,7 +145,21 @@ export function BookingModal({
             </div>
             <div>
               <span className="text-gray-600">老師</span>
-              <p className="font-medium text-gray-900">{appUser?.displayName}</p>
+              {isAdmin && teachers && teachers.length > 0 ? (
+                <select
+                  value={selectedTeacherId}
+                  onChange={(e) => setSelectedTeacherId(e.target.value)}
+                  className="w-full border rounded px-1 py-0.5 text-sm text-gray-900 font-medium"
+                >
+                  {teachers.map((t) => (
+                    <option key={t.uid} value={t.uid}>
+                      {t.displayName}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="font-medium text-gray-900">{appUser?.displayName}</p>
+              )}
             </div>
           </div>
 

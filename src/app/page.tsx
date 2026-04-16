@@ -60,6 +60,7 @@ function HomeContent() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [userColorMap, setUserColorMap] = useState<Record<string, number>>({});
+  const [teachers, setTeachers] = useState<AppUser[]>([]);
   const [currentDate, setCurrentDate] = useState(getToday());
   const [viewMode, setViewMode] = useState<'day' | 'week'>(() => {
     if (typeof window !== 'undefined') {
@@ -92,17 +93,22 @@ function HomeContent() {
     return unsub;
   }, []);
 
-  // Load user color map
+  // Load user color map + teachers list
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snap) => {
       const map: Record<string, number> = {};
+      const teacherList: AppUser[] = [];
       snap.docs.forEach((d) => {
         const user = d.data() as AppUser;
         if (user.colorIndex !== undefined) {
           map[user.uid] = user.colorIndex;
         }
+        if (user.role === 'admin' || user.role === 'teacher') {
+          teacherList.push(user);
+        }
       });
       setUserColorMap(map);
+      setTeachers(teacherList);
     });
     return unsub;
   }, []);
@@ -180,6 +186,7 @@ function HomeContent() {
           startTime={modalState.startTime}
           onClose={() => setModalState({ type: 'none' })}
           onSuccess={() => setModalState({ type: 'none' })}
+          teachers={teachers}
         />
       )}
 
