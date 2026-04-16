@@ -147,11 +147,19 @@ function AdminContent() {
     setEditingUid(user.uid);
     setEditName(user.displayName);
     setEditRole(user.role);
+    setEditError('');
   }
 
+  const [editError, setEditError] = useState('');
+
   async function handleSaveEdit(user: AppUser) {
+    if (!editName.trim()) {
+      setEditError('姓名不可為空');
+      return;
+    }
+    setEditError('');
     try {
-      const updates: Record<string, string> = { displayName: editName };
+      const updates: Record<string, string> = { displayName: editName.trim() };
       if (user.role !== 'admin') {
         updates.role = editRole;
       }
@@ -289,6 +297,7 @@ function AdminContent() {
                       </div>
                     )}
                     <p className="text-xs text-gray-500">{user.email}</p>
+                    {editError && <p className="text-red-500 text-xs">{editError}</p>}
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleSaveEdit(user)}
