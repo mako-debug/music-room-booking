@@ -116,35 +116,35 @@ export function BookingModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-5">
-        <h2 className="text-lg font-bold mb-4">新增預約</h2>
+        <h2 className="text-lg font-bold mb-4 text-gray-900">新增預約</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <span className="text-gray-500">教室</span>
-              <p className="font-medium">{roomName}</p>
+              <span className="text-gray-600">教室</span>
+              <p className="font-medium text-gray-900">{roomName}</p>
             </div>
             <div>
-              <span className="text-gray-500">日期</span>
-              <p className="font-medium">
+              <span className="text-gray-600">日期</span>
+              <p className="font-medium text-gray-900">
                 {dateObj.getMonth() + 1}/{dateObj.getDate()}（{dayOfWeek}）
               </p>
             </div>
             <div>
-              <span className="text-gray-500">開始</span>
-              <p className="font-medium">{startTime}</p>
+              <span className="text-gray-600">開始</span>
+              <p className="font-medium text-gray-900">{startTime}</p>
             </div>
             <div>
-              <span className="text-gray-500">老師</span>
-              <p className="font-medium">{appUser?.displayName}</p>
+              <span className="text-gray-600">老師</span>
+              <p className="font-medium text-gray-900">{appUser?.displayName}</p>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-500 mb-1">時長</label>
+            <label className="block text-sm text-gray-700 mb-1">時長</label>
             <select
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full border rounded px-3 py-2 text-sm text-gray-900"
             >
               {DURATION_OPTIONS.map((opt) => (
                 <option key={opt.minutes} value={opt.minutes}>
@@ -158,24 +158,24 @@ export function BookingModal({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-500 mb-1">學生姓名 *</label>
+            <label className="block text-sm text-gray-700 mb-1">學生姓名 *</label>
             <input
               type="text"
               value={studentName}
               onChange={(e) => setStudentName(e.target.value)}
               required
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full border rounded px-3 py-2 text-sm text-gray-900"
               placeholder="學生姓名"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-500 mb-1">用途</label>
+            <label className="block text-sm text-gray-700 mb-1">用途</label>
             <input
               type="text"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full border rounded px-3 py-2 text-sm text-gray-900"
               placeholder="鋼琴課、小提琴課..."
             />
           </div>
@@ -187,7 +187,7 @@ export function BookingModal({
               checked={repeat}
               onChange={(e) => setRepeat(e.target.checked)}
             />
-            <label htmlFor="repeat" className="text-sm">
+            <label htmlFor="repeat" className="text-sm text-gray-900">
               每週重複
             </label>
             {repeat && (
@@ -209,7 +209,7 @@ export function BookingModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 border rounded py-2 text-sm hover:bg-gray-50"
+              className="flex-1 border rounded py-2 text-sm text-gray-900 hover:bg-gray-50"
             >
               取消
             </button>
