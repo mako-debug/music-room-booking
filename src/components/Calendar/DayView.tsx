@@ -45,14 +45,14 @@ export function DayView({
     <div className="overflow-x-auto">
       <table className="w-full border-collapse min-w-[600px]">
         <thead>
-          <tr className="bg-gray-50">
-            <th className="sticky left-0 bg-gray-50 border px-2 py-1 text-xs font-medium text-gray-500 w-16">
+          <tr className="bg-amber-50">
+            <th className="sticky left-0 bg-amber-50 border px-2 py-1 text-xs font-bold text-amber-800 w-16">
               時間
             </th>
             {rooms.map((room) => (
               <th
                 key={room.id}
-                className="border px-2 py-1 text-xs font-medium text-gray-700"
+                className="border px-2 py-1 text-xs font-bold text-amber-800 bg-amber-50"
               >
                 {room.name}
               </th>
@@ -62,7 +62,7 @@ export function DayView({
         <tbody>
           {timeSlots.map((time) => (
             <tr key={time}>
-              <td className="sticky left-0 bg-white border px-2 py-1 text-xs text-gray-500 w-16">
+              <td className="sticky left-0 bg-amber-50/60 border px-2 py-1 text-xs font-medium text-amber-800 w-16">
                 {time}
               </td>
               {rooms.map((room) => {
