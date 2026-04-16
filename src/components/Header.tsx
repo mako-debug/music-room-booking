@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuth } from './AuthProvider';
 import { signOut } from '@/lib/auth';
 import Link from 'next/link';
@@ -24,6 +27,37 @@ export function Header({
   rooms,
 }: HeaderProps) {
   const { appUser } = useAuth();
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  function startEditName() {
+    setNewName(appUser?.displayName || '');
+    setEditingName(true);
+  }
+
+  async function handleSaveName() {
+    if (!appUser || !newName.trim()) return;
+    setSaving(true);
+    try {
+      const trimmed = newName.trim();
+      await updateDoc(doc(db, 'users', appUser.uid), { displayName: trimmed });
+
+      // 同步更新所有預約的 userName
+      if (trimmed !== appUser.displayName) {
+        const q = query(collection(db, 'bookings'), where('userId', '==', appUser.uid));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await updateDoc(d.ref, { userName: trimmed });
+        }
+      }
+      setEditingName(false);
+    } catch {
+      alert('更新失敗');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function shiftDate(days: number) {
     const d = new Date(currentDate + 'T00:00:00');
@@ -59,9 +93,38 @@ export function Header({
           🎵 新米蘭音樂教室
         </h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">
-            👤 {appUser?.displayName}
-          </span>
+          {editingName ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="border rounded px-2 py-0.5 text-sm text-gray-900 w-24"
+                autoFocus
+              />
+              <button
+                onClick={handleSaveName}
+                disabled={saving || !newName.trim()}
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? '...' : '存'}
+              </button>
+              <button
+                onClick={() => setEditingName(false)}
+                className="text-xs border px-2 py-1 rounded text-gray-900 hover:bg-gray-50"
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <span
+              className="text-sm text-gray-600 cursor-pointer hover:underline"
+              onClick={startEditName}
+              title="點擊修改姓名"
+            >
+              👤 {appUser?.displayName} ✏️
+            </span>
+          )}
           {appUser?.role === 'admin' && (
             <Link href="/admin" className="text-sm text-blue-600 hover:underline">
               帳號管理
