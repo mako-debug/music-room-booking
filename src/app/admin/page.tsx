@@ -142,14 +142,37 @@ function AdminContent() {
     }
   }
 
+  // Sort state
+  type SortKey = 'name' | 'role' | 'date' | 'status';
+  const [sortBy, setSortBy] = useState<SortKey>('name');
+
   // Load users
   useEffect(() => {
-    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
       setUsers(snap.docs.map((d) => d.data() as AppUser));
     });
     return unsub;
   }, []);
+
+  const roleOrder: Record<string, number> = { admin: 0, teacher: 1, student: 2 };
+
+  const sortedUsers = [...users].sort((a, b) => {
+    switch (sortBy) {
+      case 'name':
+        return a.displayName.localeCompare(b.displayName, 'zh-TW');
+      case 'role':
+        return (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9);
+      case 'date':
+        return (b.createdAt || '').localeCompare(a.createdAt || '');
+      case 'status': {
+        const aActive = a.active !== false ? 0 : 1;
+        const bActive = b.active !== false ? 0 : 1;
+        return aActive - bActive;
+      }
+      default:
+        return 0;
+    }
+  });
 
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
@@ -371,11 +394,23 @@ function AdminContent() {
 
         {/* User list */}
         <div className="bg-white rounded-lg shadow p-5">
-          <h2 className="text-base font-bold text-gray-900 mb-4">
-            帳號列表（{users.length}）
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-bold text-gray-900">
+              帳號列表（{users.length}）
+            </h2>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortKey)}
+              className="border rounded px-2 py-1 text-xs text-gray-900"
+            >
+              <option value="name">依姓名</option>
+              <option value="role">依角色</option>
+              <option value="date">依建立時間</option>
+              <option value="status">依狀態</option>
+            </select>
+          </div>
           <div className="space-y-3">
-            {users.map((user) => (
+            {sortedUsers.map((user) => (
               <div key={user.uid} className="border rounded p-3">
                 {editingUid === user.uid ? (
                   <div className="space-y-2">
