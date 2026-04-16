@@ -65,13 +65,16 @@ export function WeekView({
             </th>
             {weekDates.map((date, i) => {
               const d = new Date(date);
+              const now = new Date();
+              const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+              const isToday = date === todayStr;
               return (
                 <th
                   key={date}
-                  className="border px-2 py-1 text-xs font-medium text-gray-700"
+                  className={`border px-2 py-1 text-xs font-medium ${isToday ? 'bg-blue-50' : ''}`}
                 >
-                  <div>{DAY_LABELS[i]}</div>
-                  <div className="text-gray-400">
+                  <div className={isToday ? 'text-blue-700 font-bold' : 'text-gray-700'}>{DAY_LABELS[i]}</div>
+                  <div className={isToday ? 'text-blue-600 font-bold' : 'text-gray-400'}>
                     {d.getMonth() + 1}/{d.getDate()}
                   </div>
                 </th>
@@ -87,8 +90,11 @@ export function WeekView({
               </td>
               {weekDates.map((date) => {
                 const booking = getBookingAt(date, time);
+                const now = new Date();
+                const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const isToday = date === todayStr;
                 return (
-                  <td key={date} className="border p-0.5 h-10">
+                  <td key={date} className={`border p-0.5 h-10 ${isToday && !booking ? 'bg-blue-50/50' : ''}`}>
                     <TimeSlot
                       booking={booking}
                       canBook={canBook}
