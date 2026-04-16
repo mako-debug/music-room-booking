@@ -55,43 +55,43 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-5">
-        <h2 className="text-lg font-bold mb-4">預約詳情</h2>
+        <h2 className="text-lg font-bold mb-4 text-gray-900">預約詳情</h2>
 
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-500">教室</span>
-            <span>{booking.roomId.replace('room-', '')}號教室</span>
+            <span className="text-gray-600">教室</span>
+            <span className="text-gray-900">{booking.roomId.replace('room-', '')}號教室</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">日期</span>
-            <span>
+            <span className="text-gray-600">日期</span>
+            <span className="text-gray-900">
               {dateObj.getMonth() + 1}/{dateObj.getDate()}（{dayOfWeek}）
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">時間</span>
-            <span>
+            <span className="text-gray-600">時間</span>
+            <span className="text-gray-900">
               {booking.startTime} ~ {booking.endTime}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">老師</span>
-            <span>{booking.userName}</span>
+            <span className="text-gray-600">老師</span>
+            <span className="text-gray-900">{booking.userName}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">學生</span>
-            <span>{booking.studentName}</span>
+            <span className="text-gray-600">學生</span>
+            <span className="text-gray-900">{booking.studentName}</span>
           </div>
           {booking.purpose && (
             <div className="flex justify-between">
-              <span className="text-gray-500">用途</span>
-              <span>{booking.purpose}</span>
+              <span className="text-gray-600">用途</span>
+              <span className="text-gray-900">{booking.purpose}</span>
             </div>
           )}
           {isRepeat && (
             <div className="flex justify-between">
-              <span className="text-gray-500">類型</span>
-              <span className="text-blue-600">每週重複</span>
+              <span className="text-gray-600">類型</span>
+              <span className="text-blue-700 font-medium">每週重複</span>
             </div>
           )}
         </div>
@@ -128,7 +128,7 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
 
           <button
             onClick={onClose}
-            className="w-full border rounded py-2 text-sm hover:bg-gray-50"
+            className="w-full border rounded py-2 text-sm text-gray-900 hover:bg-gray-50"
           >
             關閉
           </button>
