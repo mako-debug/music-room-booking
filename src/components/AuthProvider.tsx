@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { fetchUserProfile } from '@/lib/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { AppUser } from '@/types';
 
 interface AuthContextType {
@@ -28,17 +28,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubProfile: (() => void) | null = null;
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
+
+      // Clean up previous profile listener
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = null;
+      }
+
       if (user) {
-        const profile = await fetchUserProfile(user.uid);
-        setAppUser(profile);
+        // Real-time listen to user profile — name changes update immediately
+        unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+          if (snap.exists()) {
+            setAppUser(snap.data() as AppUser);
+          } else {
+            setAppUser(null);
+          }
+          setLoading(false);
+        });
       } else {
         setAppUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
-    return unsubscribe;
+
+    return () => {
+      unsubAuth();
+      if (unsubProfile) unsubProfile();
+    };
   }, []);
 
   return (
