@@ -3,16 +3,19 @@
 import { useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { deleteBooking, deleteRepeatBookings, updateBooking } from '@/lib/bookings';
-import { Booking } from '@/types';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Booking, AppUser } from '@/types';
 import { VoiceInput } from './VoiceInput';
 
 interface BookingDetailProps {
   booking: Booking;
   onClose: () => void;
   onDeleted: () => void;
+  teachers?: AppUser[];
 }
 
-export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProps) {
+export function BookingDetail({ booking, onClose, onDeleted, teachers }: BookingDetailProps) {
   const { appUser } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const [showRepeatOptions, setShowRepeatOptions] = useState(false);
@@ -21,6 +24,8 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
   const [editPurpose, setEditPurpose] = useState(booking.purpose || '');
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [transferring, setTransferring] = useState(false);
+  const [transferTeacherId, setTransferTeacherId] = useState('');
 
   const canEdit =
     appUser?.role === 'admin' || appUser?.uid === booking.userId;
@@ -47,6 +52,28 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
       onDeleted(); // trigger refresh
     } catch {
       setEditError('儲存失敗');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTransfer() {
+    if (!transferTeacherId) return;
+    const teacher = teachers?.find((t) => t.uid === transferTeacherId);
+    if (!teacher) return;
+    if (!confirm(`確定要將此預約轉給 ${teacher.displayName} 嗎？`)) return;
+
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'bookings', booking.id), {
+        userId: teacher.uid,
+        userName: teacher.displayName,
+      });
+      setTransferring(false);
+      onDeleted();
+      onClose();
+    } catch {
+      setEditError('轉移失敗');
     } finally {
       setSaving(false);
     }
@@ -158,13 +185,55 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
 
         <div className="flex flex-col gap-2 mt-5">
           {/* Edit / Save buttons */}
-          {canEdit && !editing && (
+          {canEdit && !editing && !transferring && (
             <button
               onClick={() => setEditing(true)}
               className="w-full border border-blue-300 text-blue-600 rounded py-2 text-sm hover:bg-blue-50"
             >
               修改
             </button>
+          )}
+
+          {/* Transfer button - admin only */}
+          {appUser?.role === 'admin' && !editing && !transferring && teachers && (
+            <button
+              onClick={() => {
+                setTransferTeacherId('');
+                setTransferring(true);
+              }}
+              className="w-full border border-purple-300 text-purple-600 rounded py-2 text-sm hover:bg-purple-50"
+            >
+              轉給其他老師
+            </button>
+          )}
+          {transferring && teachers && (
+            <div className="space-y-2">
+              <select
+                value={transferTeacherId}
+                onChange={(e) => setTransferTeacherId(e.target.value)}
+                className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+              >
+                <option value="">選擇老師</option>
+                {teachers.filter((t) => t.uid !== booking.userId).map((t) => (
+                  <option key={t.uid} value={t.uid}>{t.displayName}</option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleTransfer}
+                  disabled={saving || !transferTeacherId}
+                  className="flex-1 bg-purple-600 text-white rounded py-2 text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {saving ? '轉移中...' : '確認轉移'}
+                </button>
+                <button
+                  onClick={() => setTransferring(false)}
+                  className="flex-1 border rounded py-2 text-sm text-gray-900 hover:bg-gray-50"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
           )}
           {editing && (
             <div className="flex gap-2">

@@ -195,6 +195,7 @@ function HomeContent() {
           booking={modalState.booking}
           onClose={() => setModalState({ type: 'none' })}
           onDeleted={() => {}}
+          teachers={teachers}
         />
       )}
     </div>
