@@ -60,7 +60,7 @@ export function Header({
         </h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">
-            {appUser?.displayName}{appUser?.role === 'admin' || appUser?.role === 'teacher' ? ' 老師您好' : ' 您好'}
+            👤 {appUser?.displayName}
           </span>
           {appUser?.role === 'admin' && (
             <Link href="/admin" className="text-sm text-blue-600 hover:underline">
