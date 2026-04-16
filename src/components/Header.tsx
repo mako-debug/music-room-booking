@@ -48,7 +48,7 @@ export function Header({
   return (
     <header className="bg-white border-b px-4 py-3">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-lg font-bold">新米蘭音樂教室</h1>
+        <h1 className="text-lg font-bold text-gray-900">新米蘭音樂教室</h1>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-600">{appUser?.displayName}</span>
           <button
@@ -65,7 +65,7 @@ export function Header({
           <select
             value={viewMode}
             onChange={(e) => onViewModeChange(e.target.value as 'day' | 'week')}
-            className="border rounded px-2 py-1 text-sm"
+            className="border rounded px-2 py-1 text-sm text-gray-900"
           >
             <option value="day">日</option>
             <option value="week">週</option>
@@ -75,7 +75,7 @@ export function Header({
             <select
               value={selectedRoomId}
               onChange={(e) => onRoomChange(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
+              className="border rounded px-2 py-1 text-sm text-gray-900"
             >
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -89,18 +89,18 @@ export function Header({
         <div className="flex items-center gap-2">
           <button
             onClick={() => (viewMode === 'day' ? shiftDate(-1) : shiftWeek(-1))}
-            className="px-2 py-1 text-sm border rounded hover:bg-gray-100"
+            className="px-2 py-1 text-sm border rounded hover:bg-gray-100 text-gray-900"
           >
             &lt;
           </button>
-          <span className="text-sm font-medium min-w-[120px] text-center">
+          <span className="text-sm font-medium min-w-[120px] text-center text-gray-900">
             {viewMode === 'day'
               ? `${dateObj.getMonth() + 1}/${dateObj.getDate()}（${dayOfWeek}）`
               : `${formatDate(weekStart)} ~ ${formatDate(weekEnd)}`}
           </span>
           <button
             onClick={() => (viewMode === 'day' ? shiftDate(1) : shiftWeek(1))}
-            className="px-2 py-1 text-sm border rounded hover:bg-gray-100"
+            className="px-2 py-1 text-sm border rounded hover:bg-gray-100 text-gray-900"
           >
             &gt;
           </button>
