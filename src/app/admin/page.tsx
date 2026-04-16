@@ -314,17 +314,17 @@ function AdminContent() {
                       </p>
                       <p className="text-xs text-gray-500">{user.email}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-4">
                       <button
                         onClick={() => startEdit(user)}
-                        className="text-xs text-blue-600 hover:underline"
+                        className="text-xs text-blue-600 hover:underline px-2 py-1"
                       >
                         修改
                       </button>
                       {user.uid !== appUser?.uid && (
                         <button
                           onClick={() => handleDeleteUser(user)}
-                          className="text-xs text-red-500 hover:underline"
+                          className="text-xs text-red-500 hover:underline px-2 py-1"
                         >
                           刪除
                         </button>
