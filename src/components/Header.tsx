@@ -131,7 +131,9 @@ export function Header({
             </Link>
           )}
           <button
-            onClick={() => signOut()}
+            onClick={() => {
+              if (confirm('確定要登出嗎？')) signOut();
+            }}
             className="text-sm text-red-500 hover:underline"
           >
             登出
