@@ -60,7 +60,14 @@ function HomeContent() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [currentDate, setCurrentDate] = useState(getToday());
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [viewMode, setViewMode] = useState<'day' | 'week'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('viewMode');
+      if (saved === 'day' || saved === 'week') return saved;
+      return window.innerWidth >= 768 ? 'week' : 'day';
+    }
+    return 'day';
+  });
   const [selectedRoomId, setSelectedRoomId] = useState('room-1');
 
   const [modalState, setModalState] = useState<
@@ -69,12 +76,11 @@ function HomeContent() {
     | { type: 'detail'; booking: Booking }
   >({ type: 'none' });
 
-  // Detect mobile on mount
-  useEffect(() => {
-    if (window.innerWidth >= 768) {
-      setViewMode('week');
-    }
-  }, []);
+  // Save view mode preference
+  function handleViewModeChange(mode: 'day' | 'week') {
+    setViewMode(mode);
+    localStorage.setItem('viewMode', mode);
+  }
 
   // Load rooms
   useEffect(() => {
@@ -116,7 +122,7 @@ function HomeContent() {
     <div className="min-h-screen bg-gray-50">
       <Header
         viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        onViewModeChange={handleViewModeChange}
         currentDate={currentDate}
         onDateChange={setCurrentDate}
         selectedRoomId={selectedRoomId}
