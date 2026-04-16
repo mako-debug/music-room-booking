@@ -104,7 +104,7 @@ function AdminContent() {
     setResetSaving(true);
     try {
       const token = await auth.currentUser?.getIdToken();
-      const res = await fetch('/api/admin/reset-password', {
+      const res = await fetch('/api/admin/update-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUid: resetPwdUid, newPassword: resetNewPwd, callerToken: token }),
@@ -180,12 +180,14 @@ function AdminContent() {
   // Edit state
   const [editingUid, setEditingUid] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('teacher');
   const [editColorIndex, setEditColorIndex] = useState<number>(0);
 
   function startEdit(user: AppUser) {
     setEditingUid(user.uid);
     setEditName(user.displayName);
+    setEditEmail(user.email);
     setEditRole(user.role);
     setEditColorIndex(user.colorIndex ?? 0);
     setEditError('');
@@ -198,10 +200,31 @@ function AdminContent() {
       setEditError('姓名不可為空');
       return;
     }
+    if (!editEmail.trim()) {
+      setEditError('Email 不可為空');
+      return;
+    }
     setEditError('');
     try {
       const newName = editName.trim();
-      const updates: Record<string, string | number> = { displayName: newName, colorIndex: editColorIndex };
+      const newEmail = editEmail.trim();
+
+      // If email changed, update via Admin SDK API
+      if (newEmail !== user.email) {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch('/api/admin/update-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetUid: user.uid, newEmail, callerToken: token }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setEditError(data.error || '更新 Email 失敗');
+          return;
+        }
+      }
+
+      const updates: Record<string, string | number> = { displayName: newName, email: newEmail, colorIndex: editColorIndex };
       if (user.role !== 'admin') {
         updates.role = editRole;
       }
@@ -362,7 +385,15 @@ function AdminContent() {
                         ))}
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full border rounded px-2 py-1 text-sm text-gray-900"
+                      />
+                    </div>
                     {editError && <p className="text-red-500 text-xs">{editError}</p>}
                     <div className="flex gap-2">
                       <button
