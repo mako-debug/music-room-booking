@@ -271,11 +271,21 @@ function AdminContent() {
       alert('無法刪除自己的帳號');
       return;
     }
-    if (!confirm(`確定要刪除 ${user.displayName}（${user.email}）嗎？`)) return;
+    if (!confirm(`確定要刪除 ${user.displayName}（${user.email}）嗎？\n\n此操作會同時刪除該帳號的所有預約課表！\n建議使用「停用」代替刪除。`)) return;
+    if (!confirm(`再次確認：刪除 ${user.displayName} 的帳號及所有課表？此操作無法復原！`)) return;
 
     try {
+      // 刪除該使用者的所有預約
+      const q = query(collection(db, 'bookings'), where('userId', '==', user.uid));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref);
+      }
+
+      // 刪除使用者資料
       await deleteDoc(doc(db, 'users', user.uid));
-      setMessage(`已刪除 ${user.displayName} 的 Firestore 資料`);
+
+      setMessage(`已刪除 ${user.displayName} 的帳號及 ${snap.size} 筆預約`);
     } catch {
       setError('刪除失敗');
     }
