@@ -13,9 +13,11 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  getDocs,
   onSnapshot,
   query,
   orderBy,
+  where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { AuthGuard } from '@/components/AuthGuard';
@@ -162,12 +164,23 @@ function AdminContent() {
     }
     setEditError('');
     try {
-      const updates: Record<string, string | number> = { displayName: editName.trim(), colorIndex: editColorIndex };
+      const newName = editName.trim();
+      const updates: Record<string, string | number> = { displayName: newName, colorIndex: editColorIndex };
       if (user.role !== 'admin') {
         updates.role = editRole;
       }
       await updateDoc(doc(db, 'users', user.uid), updates);
-      setMessage(`已更新帳號資料`);
+
+      // 同步更新該使用者所有預約的 userName
+      if (newName !== user.displayName) {
+        const q = query(collection(db, 'bookings'), where('userId', '==', user.uid));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await updateDoc(d.ref, { userName: newName });
+        }
+      }
+
+      setMessage(`已更新帳號資料${newName !== user.displayName ? '（含所有預約）' : ''}`);
       setEditingUid(null);
     } catch {
       setError('更新失敗');
