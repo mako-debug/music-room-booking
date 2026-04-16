@@ -52,6 +52,7 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
   }
 
   async function handleDeleteSingle() {
+    if (!confirm('確定要取消這筆預約嗎？')) return;
     setDeleting(true);
     try {
       await deleteBooking(booking.id);
@@ -66,6 +67,7 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
 
   async function handleDeleteRepeatFromDate() {
     if (!booking.repeatGroupId) return;
+    if (!confirm('確定要取消此週之後的所有重複預約嗎？')) return;
     setDeleting(true);
     try {
       const count = await deleteRepeatBookings(booking.repeatGroupId, booking.date);
