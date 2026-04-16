@@ -1,36 +1,167 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 新米蘭音樂教室 — 琴房預約系統
 
-## Getting Started
+手機掃 QR Code 即可查看及預約琴房，專為音樂教室設計的輕量預約系統。
 
-First, run the development server:
+**線上版本：** https://music-room-booking-tau.vercel.app
+
+## 功能概覽
+
+- 7 間琴房的日曆檢視（日檢視 / 週檢視切換）
+- 預約功能：點格子 → 選時長 → 填學生姓名 → 確認
+- 每週重複排課（2~4 週一次建立）
+- 取消預約（單次 / 整組重複）
+- 修改預約（學生姓名、用途）
+- 帳號管理（新增、修改、停用、重設密碼、改 Email）
+- 老師自動分配色系（管理員可自訂，15 色）
+- 管理員可代其他老師預約
+- 所有使用者可自行修改姓名和密碼
+- QR Code 入口，手機 RWD 優先設計
+
+## 角色權限
+
+| 功能 | 管理員 | 老師 | 學生 |
+|------|:------:|:----:|:----:|
+| 查看日曆 | O | O | O |
+| 新增預約 | O | O | X |
+| 代他人預約 | O | X | X |
+| 取消自己的預約 | O | O | X |
+| 取消任何人的預約 | O | X | X |
+| 修改預約（學生/用途） | O | 自己的 | X |
+| 帳號管理 | O | X | X |
+| 停用/啟用帳號 | O | X | X |
+| 重設他人密碼 | O | X | X |
+| 修改自己姓名 | O | O | O |
+| 修改自己密碼 | O | O | O |
+
+## 技術架構
+
+```
+使用者（手機/電腦）掃 QR Code
+        |
+Next.js 15 App (Vercel)
+  ├── /login    登入頁
+  ├── /         日曆檢視 + 預約
+  └── /admin    帳號管理（管理員）
+        |
+Firebase
+  ├── Auth（Email/Password 認證）
+  ├── Firestore（預約 + 使用者 + 教室資料）
+  └── Admin SDK（密碼重設 + 帳號停用 + Email 修改）
+```
+
+| 技術 | 版本 |
+|------|------|
+| Next.js (App Router) | 15.x |
+| TypeScript | 5.x |
+| Tailwind CSS | 4.x |
+| Firebase Auth + Firestore | 11.x |
+| Firebase Admin SDK | 13.x |
+| Vercel | Hobby (Free) |
+
+## 本機開發
+
+### 前置需求
+
+- Node.js 18+
+- Firebase 專案（Auth + Firestore 已啟用）
+
+### 安裝
+
+```bash
+git clone https://github.com/mako-debug/music-room-booking.git
+cd music-room-booking
+npm install
+```
+
+### 環境變數
+
+複製 `.env.example` 為 `.env.local`，填入 Firebase 設定：
+
+```bash
+cp .env.example .env.local
+```
+
+需要的值：
+
+| 變數 | 來源 |
+|------|------|
+| `NEXT_PUBLIC_FIREBASE_*` | Firebase Console → 專案設定 → Web App |
+| `FIREBASE_ADMIN_*` | Firebase Console → 專案設定 → 服務帳戶 → 產生私密金鑰 |
+
+### 啟動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+開啟 http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Firestore 資料結構
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### `users` — 使用者
 
-## Learn More
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| uid | string | Firebase Auth UID |
+| email | string | 登入 Email |
+| displayName | string | 顯示姓名 |
+| role | string | `admin` / `teacher` / `student` |
+| colorIndex | number | 色系索引（0~14） |
+| active | boolean | 帳號啟用狀態 |
+| createdAt | string | 建立時間 |
 
-To learn more about Next.js, take a look at the following resources:
+### `rooms` — 教室
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | string | room-1 ~ room-7 |
+| name | string | 1號教室 ~ 7號教室 |
+| order | number | 排序 |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### `bookings` — 預約
 
-## Deploy on Vercel
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| roomId | string | 教室 ID |
+| date | string | 日期 YYYY-MM-DD |
+| startTime | string | 開始時間 HH:mm |
+| endTime | string | 結束時間 HH:mm |
+| userId | string | 預約者 UID |
+| userName | string | 預約者姓名 |
+| studentName | string | 學生姓名 |
+| purpose | string | 用途（選填） |
+| repeatGroupId | string | 重複排課群組 ID（選填） |
+| createdAt | string | 建立時間 |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Firestore 複合索引
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Fields | 用途 |
+|--------|------|
+| `roomId` ASC + `date` ASC | 週檢視查詢 |
+| `repeatGroupId` ASC + `date` ASC | 批次取消重複排課 |
+
+## 部署
+
+### Vercel
+
+1. GitHub repo 連接 Vercel
+2. 設定 Environment Variables（同 `.env.local`）
+3. Push `main` 自動部署
+
+### Firebase 設定
+
+1. **Authentication** → 啟用「電子郵件/密碼」
+2. **Firestore** → 貼上 `firestore.rules` 的安全規則並發布
+3. **Firestore → 索引** → 建立 `firestore.indexes.json` 中的 2 個複合索引
+
+## 費用
+
+全部免費：
+
+| 服務 | 方案 | 月費 |
+|------|------|------|
+| Firebase Auth | Spark | $0（50,000 MAU） |
+| Firestore | Spark | $0（1GB 儲存 / 5 萬讀取/天） |
+| Vercel | Hobby | $0（100GB 流量/月） |
+
+音樂教室規模完全在免費額度內。
