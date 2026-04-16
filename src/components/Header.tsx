@@ -124,15 +124,15 @@ export function Header({
   const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
 
   return (
-    <header className="bg-white border-b px-4 py-3">
-      <div className="flex items-center justify-between mb-2">
+    <header className="bg-white border-b px-4 py-2">
+      <div className="flex items-center justify-between">
         <h1
-          className="text-xl font-bold"
+          className="text-base font-bold whitespace-nowrap"
           style={{ fontFamily: "'Baloo 2', 'Noto Sans TC', cursive", color: '#e67e22' }}
         >
           🎵 新米蘭音樂教室
         </h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 text-xs">
           {editingName ? (
             <div className="flex items-center gap-1">
               <input
@@ -158,7 +158,7 @@ export function Header({
             </div>
           ) : (
             <span
-              className="text-sm text-gray-600 cursor-pointer hover:underline"
+              className="text-gray-600 cursor-pointer hover:underline whitespace-nowrap"
               onClick={startEditName}
               title="點擊修改姓名"
             >
@@ -174,28 +174,28 @@ export function Header({
               setNewPwd('');
               setConfirmPwd('');
             }}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700"
             title="修改密碼"
           >
             🔑
           </button>
           {appUser?.role === 'admin' && (
-            <Link href="/admin" className="text-sm text-blue-600 hover:underline">
-              帳號管理
+            <Link href="/admin" className="text-blue-600 hover:underline whitespace-nowrap">
+              管理
             </Link>
           )}
           <button
             onClick={() => {
               if (confirm('確定要登出嗎？')) signOut();
             }}
-            className="text-sm text-red-500 hover:underline"
+            className="text-red-500 hover:underline"
           >
             登出
           </button>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mt-1">
         <div className="flex items-center gap-2">
           <select
             value={viewMode}
