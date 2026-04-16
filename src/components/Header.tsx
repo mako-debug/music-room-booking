@@ -25,17 +25,20 @@ export function Header({
   const { appUser } = useAuth();
 
   function shiftDate(days: number) {
-    const d = new Date(currentDate);
+    const d = new Date(currentDate + 'T00:00:00');
     d.setDate(d.getDate() + days);
-    onDateChange(d.toISOString().split('T')[0]);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    onDateChange(`${y}-${m}-${dd}`);
   }
 
   function shiftWeek(weeks: number) {
     shiftDate(weeks * 7);
   }
 
-  const dateObj = new Date(currentDate);
-  const weekStart = new Date(dateObj);
+  const dateObj = new Date(currentDate + 'T00:00:00');
+  const weekStart = new Date(currentDate + 'T00:00:00');
   weekStart.setDate(dateObj.getDate() - dateObj.getDay() + 1);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);

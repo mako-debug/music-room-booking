@@ -18,21 +18,31 @@ import { Room, Booking } from '@/types';
 
 function getToday(): string {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function toLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function getMonday(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
-  return d.toISOString().split('T')[0];
+  return toLocalDate(d);
 }
 
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  return toLocalDate(d);
 }
 
 export default function HomePage() {
