@@ -19,7 +19,7 @@ import {
   orderBy,
   where,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useAuth } from '@/components/AuthProvider';
 import { AppUser, UserRole } from '@/types';
@@ -85,6 +85,42 @@ function AdminContent() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  // Reset password state
+  const [resetPwdUid, setResetPwdUid] = useState<string | null>(null);
+  const [resetPwdName, setResetPwdName] = useState('');
+  const [resetNewPwd, setResetNewPwd] = useState('');
+  const [resetConfirmPwd, setResetConfirmPwd] = useState('');
+  const [resetSaving, setResetSaving] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+
+  async function handleResetPassword() {
+    setResetError('');
+    setResetSuccess('');
+    if (resetNewPwd.length < 6) { setResetError('新密碼至少 6 個字元'); return; }
+    if (resetNewPwd !== resetConfirmPwd) { setResetError('新密碼與確認密碼不一致'); return; }
+
+    setResetSaving(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUid: resetPwdUid, newPassword: resetNewPwd, callerToken: token }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResetSuccess(`已更新 ${resetPwdName} 的密碼`);
+      setResetNewPwd('');
+      setResetConfirmPwd('');
+      setTimeout(() => setResetPwdUid(null), 1500);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : '更新失敗');
+    } finally {
+      setResetSaving(false);
+    }
+  }
 
   // Load users
   useEffect(() => {
@@ -361,6 +397,19 @@ function AdminContent() {
                       >
                         修改
                       </button>
+                      <button
+                        onClick={() => {
+                          setResetPwdUid(user.uid);
+                          setResetPwdName(user.displayName);
+                          setResetNewPwd('');
+                          setResetConfirmPwd('');
+                          setResetError('');
+                          setResetSuccess('');
+                        }}
+                        className="text-xs text-orange-600 hover:underline px-2 py-1"
+                      >
+                        重設密碼
+                      </button>
                       {user.uid !== appUser?.uid && (
                         <button
                           onClick={() => handleDeleteUser(user)}
@@ -377,6 +426,53 @@ function AdminContent() {
           </div>
         </div>
       </main>
+
+      {resetPwdUid && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-5">
+            <h2 className="text-lg font-bold mb-4 text-gray-900">
+              重設密碼 — {resetPwdName}
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">新密碼（至少 6 字元）</label>
+                <input
+                  type="password"
+                  value={resetNewPwd}
+                  onChange={(e) => setResetNewPwd(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">確認新密碼</label>
+                <input
+                  type="password"
+                  value={resetConfirmPwd}
+                  onChange={(e) => setResetConfirmPwd(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                />
+              </div>
+              {resetError && <p className="text-red-500 text-sm">{resetError}</p>}
+              {resetSuccess && <p className="text-green-600 text-sm">{resetSuccess}</p>}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setResetPwdUid(null)}
+                  className="flex-1 border rounded py-2 text-sm text-gray-900 hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={resetSaving}
+                  className="flex-1 bg-blue-600 text-white rounded py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {resetSaving ? '更新中...' : '確認更新'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
