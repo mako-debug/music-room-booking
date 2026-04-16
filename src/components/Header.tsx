@@ -52,7 +52,12 @@ export function Header({
   return (
     <header className="bg-white border-b px-4 py-3">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-lg font-bold text-gray-900">新米蘭音樂教室</h1>
+        <h1
+          className="text-xl font-bold"
+          style={{ fontFamily: "'Baloo 2', 'Noto Sans TC', cursive", color: '#e67e22' }}
+        >
+          🎵 新米蘭音樂教室
+        </h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">Hi ! {appUser?.displayName}</span>
           {appUser?.role === 'admin' && (
