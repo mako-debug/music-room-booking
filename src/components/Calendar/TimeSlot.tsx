@@ -7,11 +7,12 @@ interface TimeSlotProps {
   booking?: Booking;
   onClick: () => void;
   canBook: boolean;
+  userColorMap?: Record<string, number>;
 }
 
-export function TimeSlot({ booking, onClick, canBook }: TimeSlotProps) {
+export function TimeSlot({ booking, onClick, canBook, userColorMap }: TimeSlotProps) {
   if (booking) {
-    const color = getTeacherColor(booking.userId);
+    const color = getTeacherColor(booking.userId, userColorMap?.[booking.userId]);
     return (
       <div
         onClick={onClick}

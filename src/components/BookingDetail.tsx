@@ -65,7 +65,7 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
           <div className="flex justify-between">
             <span className="text-gray-600">日期</span>
             <span className="text-gray-900">
-              {dateObj.getMonth() + 1}/{dateObj.getDate()}（{dayOfWeek}）
+              {dateObj.getFullYear()}/{dateObj.getMonth() + 1}/{dateObj.getDate()}（{dayOfWeek}）
             </span>
           </div>
           <div className="flex justify-between">

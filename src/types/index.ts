@@ -5,6 +5,7 @@ export interface AppUser {
   email: string;
   displayName: string;
   role: UserRole;
+  colorIndex?: number;
   createdAt: string;
 }
 

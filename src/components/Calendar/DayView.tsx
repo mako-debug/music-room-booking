@@ -10,6 +10,7 @@ interface DayViewProps {
   canBook: boolean;
   onEmptySlotClick: (roomId: string, time: string) => void;
   onBookingClick: (booking: Booking) => void;
+  userColorMap?: Record<string, number>;
 }
 
 function generateTimeSlots(): string[] {
@@ -28,6 +29,7 @@ export function DayView({
   canBook,
   onEmptySlotClick,
   onBookingClick,
+  userColorMap,
 }: DayViewProps) {
   const timeSlots = generateTimeSlots();
 
@@ -72,6 +74,7 @@ export function DayView({
                     <TimeSlot
                       booking={booking}
                       canBook={canBook}
+                      userColorMap={userColorMap}
                       onClick={() =>
                         booking
                           ? onBookingClick(booking)

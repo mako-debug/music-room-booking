@@ -14,7 +14,7 @@ import { DayView } from '@/components/Calendar/DayView';
 import { WeekView } from '@/components/Calendar/WeekView';
 import { BookingModal } from '@/components/BookingModal';
 import { BookingDetail } from '@/components/BookingDetail';
-import { Room, Booking } from '@/types';
+import { Room, Booking, AppUser } from '@/types';
 
 function getToday(): string {
   const now = new Date();
@@ -59,6 +59,7 @@ function HomeContent() {
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [userColorMap, setUserColorMap] = useState<Record<string, number>>({});
   const [currentDate, setCurrentDate] = useState(getToday());
   const [viewMode, setViewMode] = useState<'day' | 'week'>(() => {
     if (typeof window !== 'undefined') {
@@ -87,6 +88,21 @@ function HomeContent() {
     const q = query(collection(db, 'rooms'), orderBy('order'));
     const unsub = onSnapshot(q, (snap) => {
       setRooms(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Room)));
+    });
+    return unsub;
+  }, []);
+
+  // Load user color map
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      const map: Record<string, number> = {};
+      snap.docs.forEach((d) => {
+        const user = d.data() as AppUser;
+        if (user.colorIndex !== undefined) {
+          map[user.uid] = user.colorIndex;
+        }
+      });
+      setUserColorMap(map);
     });
     return unsub;
   }, []);
@@ -139,6 +155,7 @@ function HomeContent() {
             canBook={!!canBook}
             onEmptySlotClick={(roomId, time) => handleEmptySlotClick(roomId, time)}
             onBookingClick={handleBookingClick}
+            userColorMap={userColorMap}
           />
         ) : (
           <WeekView
@@ -148,6 +165,7 @@ function HomeContent() {
             canBook={!!canBook}
             onEmptySlotClick={handleEmptySlotClick}
             onBookingClick={handleBookingClick}
+            userColorMap={userColorMap}
           />
         )}
       </main>

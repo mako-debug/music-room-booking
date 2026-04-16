@@ -21,6 +21,7 @@ import { db } from '@/lib/firebase';
 import { AuthGuard } from '@/components/AuthGuard';
 import { useAuth } from '@/components/AuthProvider';
 import { AppUser, UserRole } from '@/types';
+import { TEACHER_COLORS } from '@/lib/colors';
 import Link from 'next/link';
 
 const firebaseConfig = {
@@ -142,11 +143,13 @@ function AdminContent() {
   const [editingUid, setEditingUid] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('teacher');
+  const [editColorIndex, setEditColorIndex] = useState<number>(0);
 
   function startEdit(user: AppUser) {
     setEditingUid(user.uid);
     setEditName(user.displayName);
     setEditRole(user.role);
+    setEditColorIndex(user.colorIndex ?? 0);
     setEditError('');
   }
 
@@ -159,7 +162,7 @@ function AdminContent() {
     }
     setEditError('');
     try {
-      const updates: Record<string, string> = { displayName: editName.trim() };
+      const updates: Record<string, string | number> = { displayName: editName.trim(), colorIndex: editColorIndex };
       if (user.role !== 'admin') {
         updates.role = editRole;
       }
@@ -296,6 +299,20 @@ function AdminContent() {
                         </select>
                       </div>
                     )}
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">色系</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TEACHER_COLORS.map((c, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setEditColorIndex(i)}
+                            className={`w-7 h-7 rounded-full ${c.preview} ${editColorIndex === i ? 'ring-2 ring-offset-1 ring-gray-800' : ''}`}
+                            title={c.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
                     <p className="text-xs text-gray-500">{user.email}</p>
                     {editError && <p className="text-red-500 text-xs">{editError}</p>}
                     <div className="flex gap-2">

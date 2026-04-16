@@ -10,6 +10,7 @@ interface WeekViewProps {
   canBook: boolean;
   onEmptySlotClick: (roomId: string, date: string, time: string) => void;
   onBookingClick: (booking: Booking) => void;
+  userColorMap?: Record<string, number>;
 }
 
 const DAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
@@ -41,6 +42,7 @@ export function WeekView({
   canBook,
   onEmptySlotClick,
   onBookingClick,
+  userColorMap,
 }: WeekViewProps) {
   const timeSlots = generateTimeSlots();
   const weekDates = getWeekDates(weekStartDate);
@@ -98,6 +100,7 @@ export function WeekView({
                     <TimeSlot
                       booking={booking}
                       canBook={canBook}
+                      userColorMap={userColorMap}
                       onClick={() =>
                         booking
                           ? onBookingClick(booking)

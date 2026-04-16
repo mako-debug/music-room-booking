@@ -126,7 +126,7 @@ export function BookingModal({
             <div>
               <span className="text-gray-600">日期</span>
               <p className="font-medium text-gray-900">
-                {dateObj.getMonth() + 1}/{dateObj.getDate()}（{dayOfWeek}）
+                {dateObj.getFullYear()}/{dateObj.getMonth() + 1}/{dateObj.getDate()}（{dayOfWeek}）
               </p>
             </div>
             <div>
