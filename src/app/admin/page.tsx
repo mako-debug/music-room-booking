@@ -149,12 +149,13 @@ function AdminContent() {
     setEditRole(user.role);
   }
 
-  async function handleSaveEdit(uid: string) {
+  async function handleSaveEdit(user: AppUser) {
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        displayName: editName,
-        role: editRole,
-      });
+      const updates: Record<string, string> = { displayName: editName };
+      if (user.role !== 'admin') {
+        updates.role = editRole;
+      }
+      await updateDoc(doc(db, 'users', user.uid), updates);
       setMessage(`已更新帳號資料`);
       setEditingUid(null);
     } catch {
@@ -274,21 +275,23 @@ function AdminContent() {
                         className="w-full border rounded px-2 py-1 text-sm text-gray-900"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">角色</label>
-                      <select
-                        value={editRole}
-                        onChange={(e) => setEditRole(e.target.value as UserRole)}
-                        className="w-full border rounded px-2 py-1 text-sm text-gray-900"
-                      >
-                        <option value="teacher">老師</option>
-                        <option value="student">學生</option>
-                      </select>
-                    </div>
+                    {user.role !== 'admin' && (
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">角色</label>
+                        <select
+                          value={editRole}
+                          onChange={(e) => setEditRole(e.target.value as UserRole)}
+                          className="w-full border rounded px-2 py-1 text-sm text-gray-900"
+                        >
+                          <option value="teacher">老師</option>
+                          <option value="student">學生</option>
+                        </select>
+                      </div>
+                    )}
                     <p className="text-xs text-gray-500">{user.email}</p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleSaveEdit(user.uid)}
+                        onClick={() => handleSaveEdit(user)}
                         className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
                       >
                         儲存
