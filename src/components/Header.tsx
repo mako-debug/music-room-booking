@@ -2,6 +2,7 @@
 
 import { useAuth } from './AuthProvider';
 import { signOut } from '@/lib/auth';
+import Link from 'next/link';
 
 interface HeaderProps {
   viewMode: 'day' | 'week';
@@ -52,8 +53,13 @@ export function Header({
     <header className="bg-white border-b px-4 py-3">
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-lg font-bold text-gray-900">新米蘭音樂教室</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">{appUser?.displayName}</span>
+          {appUser?.role === 'admin' && (
+            <Link href="/admin" className="text-sm text-blue-600 hover:underline">
+              帳號管理
+            </Link>
+          )}
           <button
             onClick={() => signOut()}
             className="text-sm text-red-500 hover:underline"
