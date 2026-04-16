@@ -194,7 +194,7 @@ export function BookingModal({
               <select
                 value={repeatWeeks}
                 onChange={(e) => setRepeatWeeks(Number(e.target.value))}
-                className="border rounded px-2 py-1 text-sm"
+                className="border rounded px-2 py-1 text-sm text-gray-900"
               >
                 <option value={2}>2 週</option>
                 <option value={3}>3 週</option>
