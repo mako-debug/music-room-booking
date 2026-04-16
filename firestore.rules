@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if request.auth != null;
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && getUserRole() in ['admin', 'teacher'];
+      allow update: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || getUserRole() == 'admin');
+      allow delete: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || getUserRole() == 'admin');
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+    }
+  }
+}
