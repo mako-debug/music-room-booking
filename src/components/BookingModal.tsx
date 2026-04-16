@@ -5,6 +5,7 @@ import { useAuth } from './AuthProvider';
 import { createBooking, createRepeatBookings } from '@/lib/bookings';
 import { AppUser, BookingInput } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import { VoiceInput } from './VoiceInput';
 
 interface BookingModalProps {
   roomId: string;
@@ -183,25 +184,31 @@ export function BookingModal({
 
           <div>
             <label className="block text-sm text-gray-700 mb-1">學生姓名 *</label>
-            <input
-              type="text"
-              value={studentName}
-              onChange={(e) => setStudentName(e.target.value)}
-              required
-              className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-              placeholder="學生姓名"
-            />
+            <div className="flex items-center">
+              <input
+                type="text"
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                required
+                className="flex-1 border rounded px-3 py-2 text-sm text-gray-900"
+                placeholder="學生姓名"
+              />
+              <VoiceInput onResult={(text) => setStudentName(text)} />
+            </div>
           </div>
 
           <div>
             <label className="block text-sm text-gray-700 mb-1">用途</label>
-            <input
-              type="text"
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-              placeholder="鋼琴課、小提琴課..."
-            />
+            <div className="flex items-center">
+              <input
+                type="text"
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                className="flex-1 border rounded px-3 py-2 text-sm text-gray-900"
+                placeholder="鋼琴課、小提琴課..."
+              />
+              <VoiceInput onResult={(text) => setPurpose(text)} />
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
