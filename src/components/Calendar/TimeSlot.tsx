@@ -1,6 +1,7 @@
 'use client';
 
 import { Booking } from '@/types';
+import { getTeacherColor } from '@/lib/colors';
 
 interface TimeSlotProps {
   booking?: Booking;
@@ -10,15 +11,16 @@ interface TimeSlotProps {
 
 export function TimeSlot({ booking, onClick, canBook }: TimeSlotProps) {
   if (booking) {
+    const color = getTeacherColor(booking.userId);
     return (
       <div
         onClick={onClick}
-        className="bg-blue-100 border border-blue-300 rounded px-1 py-0.5 cursor-pointer hover:bg-blue-200 h-full flex flex-col justify-center"
+        className={`${color.bg} border ${color.border} rounded px-1 py-0.5 cursor-pointer hover:opacity-80 h-full flex flex-col justify-center`}
       >
-        <p className="text-xs font-medium text-blue-800 truncate">
+        <p className={`text-xs font-medium ${color.name} truncate`}>
           {booking.userName}
         </p>
-        <p className="text-xs text-blue-600 truncate">{booking.studentName}</p>
+        <p className={`text-xs ${color.student} truncate`}>{booking.studentName}</p>
       </div>
     );
   }
