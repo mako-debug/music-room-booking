@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { db, auth } from '@/lib/firebase';
 import { useAuth } from './AuthProvider';
 import { signOut } from '@/lib/auth';
 import Link from 'next/link';
@@ -30,6 +31,13 @@ export function Header({
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
 
   function startEditName() {
     setNewName(appUser?.displayName || '');
@@ -56,6 +64,38 @@ export function Header({
       alert('更新失敗');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    setPwdError('');
+    setPwdSuccess('');
+    if (!currentPwd) { setPwdError('請輸入目前密碼'); return; }
+    if (newPwd.length < 6) { setPwdError('新密碼至少 6 個字元'); return; }
+    if (newPwd !== confirmPwd) { setPwdError('新密碼與確認密碼不一致'); return; }
+
+    setPwdSaving(true);
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) throw new Error('未登入');
+      const credential = EmailAuthProvider.credential(user.email, currentPwd);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPwd);
+      setPwdSuccess('密碼已更新');
+      setCurrentPwd('');
+      setNewPwd('');
+      setConfirmPwd('');
+      setTimeout(() => setChangingPassword(false), 1500);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('wrong-password')) {
+        setPwdError('目前密碼錯誤');
+      } else if (err instanceof Error && err.message.includes('invalid-credential')) {
+        setPwdError('目前密碼錯誤');
+      } else {
+        setPwdError('更新失敗，請重新登入後再試');
+      }
+    } finally {
+      setPwdSaving(false);
     }
   }
 
@@ -125,6 +165,20 @@ export function Header({
               👤 {appUser?.displayName} ✏️
             </span>
           )}
+          <button
+            onClick={() => {
+              setChangingPassword(true);
+              setPwdError('');
+              setPwdSuccess('');
+              setCurrentPwd('');
+              setNewPwd('');
+              setConfirmPwd('');
+            }}
+            className="text-sm text-gray-500 hover:text-gray-700"
+            title="修改密碼"
+          >
+            🔑
+          </button>
           {appUser?.role === 'admin' && (
             <Link href="/admin" className="text-sm text-blue-600 hover:underline">
               帳號管理
@@ -187,6 +241,59 @@ export function Header({
           </button>
         </div>
       </div>
+      {changingPassword && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-5">
+            <h2 className="text-lg font-bold mb-4 text-gray-900">修改密碼</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">目前密碼</label>
+                <input
+                  type="password"
+                  value={currentPwd}
+                  onChange={(e) => setCurrentPwd(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">新密碼（至少 6 字元）</label>
+                <input
+                  type="password"
+                  value={newPwd}
+                  onChange={(e) => setNewPwd(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">確認新密碼</label>
+                <input
+                  type="password"
+                  value={confirmPwd}
+                  onChange={(e) => setConfirmPwd(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                />
+              </div>
+              {pwdError && <p className="text-red-500 text-sm">{pwdError}</p>}
+              {pwdSuccess && <p className="text-green-600 text-sm">{pwdSuccess}</p>}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setChangingPassword(false)}
+                  className="flex-1 border rounded py-2 text-sm text-gray-900 hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleChangePassword}
+                  disabled={pwdSaving}
+                  className="flex-1 bg-blue-600 text-white rounded py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {pwdSaving ? '更新中...' : '確認更新'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
