@@ -6,6 +6,7 @@ export interface AppUser {
   displayName: string;
   role: UserRole;
   colorIndex?: number;
+  active?: boolean; // false = 帳號停用，無法登入但課表保留
   createdAt: string;
 }
 

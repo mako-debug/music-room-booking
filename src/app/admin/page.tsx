@@ -122,6 +122,26 @@ function AdminContent() {
     }
   }
 
+  async function handleToggleActive(user: AppUser) {
+    const isActive = user.active !== false;
+    const action = isActive ? '停用' : '啟用';
+    if (!confirm(`確定要${action} ${user.displayName} 的帳號嗎？${isActive ? '\n停用後該帳號將無法登入，但已預約的課表會保留。' : ''}`)) return;
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUid: user.uid, disabled: isActive, callerToken: token }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage(`已${action} ${user.displayName} 的帳號`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `${action}失敗`);
+    }
+  }
+
   // Load users
   useEffect(() => {
     const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
@@ -411,17 +431,24 @@ function AdminContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {user.displayName}
-                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                          {roleLabel[user.role]}
-                        </span>
-                      </p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {user.displayName}
+                          <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                            {roleLabel[user.role]}
+                          </span>
+                          {user.active === false && (
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                              已停用
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                      </div>
                     </div>
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 mt-2">
                       <button
                         onClick={() => startEdit(user)}
                         className="text-xs text-blue-600 hover:underline px-2 py-1"
@@ -441,6 +468,14 @@ function AdminContent() {
                       >
                         重設密碼
                       </button>
+                      {user.uid !== appUser?.uid && (
+                        <button
+                          onClick={() => handleToggleActive(user)}
+                          className={`text-xs px-2 py-1 hover:underline ${user.active === false ? 'text-green-600' : 'text-gray-600'}`}
+                        >
+                          {user.active === false ? '啟用' : '停用'}
+                        </button>
+                      )}
                       {user.uid !== appUser?.uid && (
                         <button
                           onClick={() => handleDeleteUser(user)}

@@ -4,14 +4,10 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
-    const { targetUid, newPassword, newEmail, callerToken } = await request.json();
+    const { targetUid, newPassword, newEmail, disabled, callerToken } = await request.json();
 
     if (!targetUid || !callerToken) {
       return NextResponse.json({ error: '缺少必要參數' }, { status: 400 });
-    }
-
-    if (!newPassword && !newEmail) {
-      return NextResponse.json({ error: '請提供新密碼或新 Email' }, { status: 400 });
     }
 
     if (newPassword && newPassword.length < 6) {
@@ -28,15 +24,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Build update object
-    const updates: { password?: string; email?: string } = {};
+    const updates: { password?: string; email?: string; disabled?: boolean } = {};
     if (newPassword) updates.password = newPassword;
     if (newEmail) updates.email = newEmail;
+    if (disabled !== undefined) updates.disabled = disabled;
 
-    await adminAuth.updateUser(targetUid, updates);
+    // Only call updateUser if there's something to update
+    if (Object.keys(updates).length > 0) {
+      await adminAuth.updateUser(targetUid, updates);
+    }
 
-    // If email changed, also update Firestore users doc
-    if (newEmail) {
-      await db.collection('users').doc(targetUid).update({ email: newEmail });
+    // Sync Firestore
+    const firestoreUpdates: Record<string, unknown> = {};
+    if (newEmail) firestoreUpdates.email = newEmail;
+    if (disabled !== undefined) firestoreUpdates.active = !disabled;
+
+    if (Object.keys(firestoreUpdates).length > 0) {
+      await db.collection('users').doc(targetUid).update(firestoreUpdates);
     }
 
     return NextResponse.json({ success: true });
