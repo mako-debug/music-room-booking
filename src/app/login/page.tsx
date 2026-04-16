@@ -44,7 +44,7 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
       <div className="w-full max-w-sm bg-white rounded-lg shadow p-6">
-        <h1 className="text-xl font-bold text-center mb-6">新米蘭音樂教室</h1>
+        <h1 className="text-xl font-bold text-center mb-6 text-gray-900">新米蘭音樂教室</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
