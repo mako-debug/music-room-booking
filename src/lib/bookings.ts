@@ -4,6 +4,7 @@ import {
   where,
   onSnapshot,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   getDocs,
@@ -109,6 +110,18 @@ export async function createRepeatBookings(
   }
 
   return results;
+}
+
+// Update a booking's student name and purpose
+export async function updateBooking(
+  bookingId: string,
+  data: { studentName: string; purpose?: string }
+): Promise<void> {
+  const updates: Record<string, string> = { studentName: data.studentName };
+  if (data.purpose !== undefined) {
+    updates.purpose = data.purpose;
+  }
+  await updateDoc(doc(db, 'bookings', bookingId), updates);
 }
 
 // Delete a single booking

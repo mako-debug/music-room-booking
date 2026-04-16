@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from './AuthProvider';
-import { deleteBooking, deleteRepeatBookings } from '@/lib/bookings';
+import { deleteBooking, deleteRepeatBookings, updateBooking } from '@/lib/bookings';
 import { Booking } from '@/types';
 
 interface BookingDetailProps {
@@ -15,14 +15,41 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
   const { appUser } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const [showRepeatOptions, setShowRepeatOptions] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editStudentName, setEditStudentName] = useState(booking.studentName);
+  const [editPurpose, setEditPurpose] = useState(booking.purpose || '');
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
-  const canDelete =
+  const canEdit =
     appUser?.role === 'admin' || appUser?.uid === booking.userId;
+  const canDelete = canEdit;
 
   const isRepeat = !!booking.repeatGroupId;
 
   const dateObj = new Date(booking.date);
   const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+
+  async function handleSave() {
+    if (!editStudentName.trim()) {
+      setEditError('學生姓名不可為空');
+      return;
+    }
+    setSaving(true);
+    setEditError('');
+    try {
+      await updateBooking(booking.id, {
+        studentName: editStudentName.trim(),
+        purpose: editPurpose.trim() || undefined,
+      });
+      setEditing(false);
+      onDeleted(); // trigger refresh
+    } catch {
+      setEditError('儲存失敗');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleDeleteSingle() {
     setDeleting(true);
@@ -78,16 +105,38 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
             <span className="text-gray-600">老師</span>
             <span className="text-gray-900">{booking.userName}</span>
           </div>
-          <div className="flex justify-between">
+
+          {/* Student name - editable */}
+          <div className="flex justify-between items-center">
             <span className="text-gray-600">學生</span>
-            <span className="text-gray-900">{booking.studentName}</span>
+            {editing ? (
+              <input
+                type="text"
+                value={editStudentName}
+                onChange={(e) => setEditStudentName(e.target.value)}
+                className="border rounded px-2 py-1 text-sm text-gray-900 w-40 text-right"
+              />
+            ) : (
+              <span className="text-gray-900">{booking.studentName}</span>
+            )}
           </div>
-          {booking.purpose && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">用途</span>
-              <span className="text-gray-900">{booking.purpose}</span>
-            </div>
-          )}
+
+          {/* Purpose - editable */}
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">用途</span>
+            {editing ? (
+              <input
+                type="text"
+                value={editPurpose}
+                onChange={(e) => setEditPurpose(e.target.value)}
+                className="border rounded px-2 py-1 text-sm text-gray-900 w-40 text-right"
+                placeholder="選填"
+              />
+            ) : (
+              <span className="text-gray-900">{booking.purpose || '-'}</span>
+            )}
+          </div>
+
           {isRepeat && (
             <div className="flex justify-between">
               <span className="text-gray-600">類型</span>
@@ -96,8 +145,43 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
           )}
         </div>
 
+        {editError && <p className="text-red-500 text-xs mt-2">{editError}</p>}
+
         <div className="flex flex-col gap-2 mt-5">
-          {canDelete && !showRepeatOptions && (
+          {/* Edit / Save buttons */}
+          {canEdit && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="w-full border border-blue-300 text-blue-600 rounded py-2 text-sm hover:bg-blue-50"
+            >
+              修改
+            </button>
+          )}
+          {editing && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 bg-blue-600 text-white rounded py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? '儲存中...' : '儲存'}
+              </button>
+              <button
+                onClick={() => {
+                  setEditing(false);
+                  setEditStudentName(booking.studentName);
+                  setEditPurpose(booking.purpose || '');
+                  setEditError('');
+                }}
+                className="flex-1 border rounded py-2 text-sm text-gray-900 hover:bg-gray-50"
+              >
+                取消修改
+              </button>
+            </div>
+          )}
+
+          {/* Delete buttons */}
+          {canDelete && !editing && !showRepeatOptions && (
             <button
               onClick={() => (isRepeat ? setShowRepeatOptions(true) : handleDeleteSingle())}
               disabled={deleting}
@@ -107,7 +191,7 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
             </button>
           )}
 
-          {canDelete && showRepeatOptions && (
+          {canDelete && !editing && showRepeatOptions && (
             <>
               <button
                 onClick={handleDeleteSingle}
