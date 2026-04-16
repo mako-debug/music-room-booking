@@ -281,7 +281,6 @@ function AdminContent() {
                         onChange={(e) => setEditRole(e.target.value as UserRole)}
                         className="w-full border rounded px-2 py-1 text-sm text-gray-900"
                       >
-                        <option value="admin">管理員</option>
                         <option value="teacher">老師</option>
                         <option value="student">學生</option>
                       </select>
