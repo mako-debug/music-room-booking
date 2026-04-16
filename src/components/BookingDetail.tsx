@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { deleteBooking, deleteRepeatBookings, updateBooking } from '@/lib/bookings';
 import { Booking } from '@/types';
+import { VoiceInput } from './VoiceInput';
 
 interface BookingDetailProps {
   booking: Booking;
@@ -112,12 +113,15 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
           <div className="flex justify-between items-center">
             <span className="text-gray-600">學生</span>
             {editing ? (
-              <input
-                type="text"
-                value={editStudentName}
-                onChange={(e) => setEditStudentName(e.target.value)}
-                className="border rounded px-2 py-1 text-sm text-gray-900 w-40 text-right"
-              />
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  value={editStudentName}
+                  onChange={(e) => setEditStudentName(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm text-gray-900 w-32 text-right"
+                />
+                <VoiceInput onResult={(text) => setEditStudentName(text)} />
+              </div>
             ) : (
               <span className="text-gray-900">{booking.studentName}</span>
             )}
@@ -127,13 +131,16 @@ export function BookingDetail({ booking, onClose, onDeleted }: BookingDetailProp
           <div className="flex justify-between items-center">
             <span className="text-gray-600">用途</span>
             {editing ? (
-              <input
-                type="text"
-                value={editPurpose}
-                onChange={(e) => setEditPurpose(e.target.value)}
-                className="border rounded px-2 py-1 text-sm text-gray-900 w-40 text-right"
-                placeholder="選填"
-              />
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  value={editPurpose}
+                  onChange={(e) => setEditPurpose(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm text-gray-900 w-32 text-right"
+                  placeholder="選填"
+                />
+                <VoiceInput onResult={(text) => setEditPurpose(text)} />
+              </div>
             ) : (
               <span className="text-gray-900">{booking.purpose || '-'}</span>
             )}
