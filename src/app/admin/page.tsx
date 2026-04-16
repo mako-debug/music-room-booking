@@ -11,6 +11,7 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
   deleteDoc,
   onSnapshot,
   query,
@@ -137,6 +138,30 @@ function AdminContent() {
     }
   }
 
+  // Edit state
+  const [editingUid, setEditingUid] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('teacher');
+
+  function startEdit(user: AppUser) {
+    setEditingUid(user.uid);
+    setEditName(user.displayName);
+    setEditRole(user.role);
+  }
+
+  async function handleSaveEdit(uid: string) {
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        displayName: editName,
+        role: editRole,
+      });
+      setMessage(`已更新帳號資料`);
+      setEditingUid(null);
+    } catch {
+      setError('更新失敗');
+    }
+  }
+
   async function handleDeleteUser(user: AppUser) {
     if (user.uid === appUser?.uid) {
       alert('無法刪除自己的帳號');
@@ -238,26 +263,74 @@ function AdminContent() {
           </h2>
           <div className="space-y-3">
             {users.map((user) => (
-              <div
-                key={user.uid}
-                className="flex items-center justify-between border rounded p-3"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {user.displayName}
-                    <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                      {roleLabel[user.role]}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
-                </div>
-                {user.uid !== appUser?.uid && (
-                  <button
-                    onClick={() => handleDeleteUser(user)}
-                    className="text-xs text-red-500 hover:underline"
-                  >
-                    刪除
-                  </button>
+              <div key={user.uid} className="border rounded p-3">
+                {editingUid === user.uid ? (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">姓名</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full border rounded px-2 py-1 text-sm text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">角色</label>
+                      <select
+                        value={editRole}
+                        onChange={(e) => setEditRole(e.target.value as UserRole)}
+                        className="w-full border rounded px-2 py-1 text-sm text-gray-900"
+                      >
+                        <option value="admin">管理員</option>
+                        <option value="teacher">老師</option>
+                        <option value="student">學生</option>
+                      </select>
+                    </div>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSaveEdit(user.uid)}
+                        className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                      >
+                        儲存
+                      </button>
+                      <button
+                        onClick={() => setEditingUid(null)}
+                        className="text-xs border px-3 py-1 rounded text-gray-900 hover:bg-gray-50"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {user.displayName}
+                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                          {roleLabel[user.role]}
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEdit(user)}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        修改
+                      </button>
+                      {user.uid !== appUser?.uid && (
+                        <button
+                          onClick={() => handleDeleteUser(user)}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          刪除
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
