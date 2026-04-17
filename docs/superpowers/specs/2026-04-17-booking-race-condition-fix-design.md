@@ -213,11 +213,12 @@ match /booking_locks/{lockId} {
 
 ## 9. Rollout 順序
 
-1. Deploy 含新 code 與 migration route 的版本
-2. Admin 登入點「Backfill booking locks」→ 驗證 result
-3. 確認 `booking_locks` 數量與預期相符
-4. 做最小 smoke test（見 §10）
-5. 另開 PR 拆除 migration route 與按鈕
+1. **先 deploy `firestore.rules`**（`firebase deploy --only firestore:rules`）——否則新 code 的 `createBooking` tx 寫 lock 會被 rules 擋
+2. Deploy 含新 code 與 migration route 的版本
+3. Admin 登入點「Backfill booking locks」→ 驗證 result
+4. 確認 `booking_locks` 數量與預期相符
+5. 做最小 smoke test（見 §10）
+6. 另開 PR 拆除 migration route 與按鈕
 
 **注意**：第 1 步完成後、第 2 步完成前，新 booking 邏輯**保護不完整**（看不到舊 booking 的 lock），所以兩步要**在分鐘級內緊接完成**（admin 部署完立刻打開 `/admin` 頁面按按鈕，不要拖到隔天）。若用量尚低，可選擇低流量時段執行。
 
