@@ -1,3 +1,5 @@
+// TEMPORARY — one-off migration per docs/superpowers/plans/2026-04-17-booking-race-condition-fix.md Task 3.6.
+// DELETE this file (and the corresponding admin UI section) after verification.
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -25,6 +27,8 @@ function expandBuckets(startTime: string, endTime: string): string[] {
   return buckets;
 }
 
+// Helpers duplicated from src/lib/bookings.ts because this file uses admin SDK
+// (not client SDK). Removed together with this file per Task 3.6.
 interface BookingShape {
   roomId: string;
   date: string;
@@ -53,6 +57,8 @@ export async function POST(request: NextRequest) {
     let skipped = 0;
     const errors: Array<{ bookingId: string; message: string }> = [];
 
+    // Counters live outside the transaction callback so Firestore's internal
+    // retries (on contention) don't double-count migrated/skipped bookings.
     for (const bookingDoc of bookingsSnap.docs) {
       try {
         const result = await db.runTransaction(async (tx) => {
