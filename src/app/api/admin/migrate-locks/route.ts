@@ -66,14 +66,23 @@ export async function POST(request: NextRequest) {
           if (!freshSnap.exists) return 'skip';
           const booking = freshSnap.data() as BookingShape;
           const buckets = expandBuckets(booking.startTime, booking.endTime);
+          const lockRefs = buckets.map((bucket) =>
+            db
+              .collection('booking_locks')
+              .doc(`${booking.roomId}_${booking.date}_${bucket}`)
+          );
+
+          // Phase 1: all reads before any writes (Firestore tx requirement)
+          const lockSnaps = await Promise.all(
+            lockRefs.map((ref) => tx.get(ref))
+          );
+
+          // Phase 2: writes only
           const createdAt = new Date().toISOString();
           let created = 0;
-          for (const bucket of buckets) {
-            const lockId = `${booking.roomId}_${booking.date}_${bucket}`;
-            const lockRef = db.collection('booking_locks').doc(lockId);
-            const lockSnap = await tx.get(lockRef);
-            if (!lockSnap.exists) {
-              tx.set(lockRef, {
+          for (let i = 0; i < lockRefs.length; i++) {
+            if (!lockSnaps[i].exists) {
+              tx.set(lockRefs[i], {
                 bookingId: freshSnap.id,
                 userId: booking.userId,
                 createdAt,
