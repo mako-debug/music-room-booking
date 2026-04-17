@@ -23,8 +23,19 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if request.auth != null;
+
+      // Admin 可任意更新使用者資料
       allow update: if request.auth != null
-        && (getUserRole() == 'admin' || request.auth.uid == userId);
+        && getUserRole() == 'admin';
+
+      // 本人只能更新 displayName / colorIndex，
+      // 禁止自行改動 role / active / email / uid / createdAt，
+      // 防止使用者在前端自行升級為 admin 或改他人 email
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'active', 'email', 'uid', 'createdAt']);
+
       allow create, delete: if request.auth != null
         && getUserRole() == 'admin';
     }
