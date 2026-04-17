@@ -23,13 +23,16 @@ service cloud.firestore {
     match /bookings/{bookingId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && getUserRole() in ['admin', 'teacher'];
+        && getUserRole() in ['admin', 'teacher']
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
       allow update: if request.auth != null
         && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin');
+            || getUserRole() == 'admin')
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
       allow delete: if request.auth != null
         && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin');
+            || getUserRole() == 'admin')
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
     }
 
     match /booking_locks/{lockId} {
