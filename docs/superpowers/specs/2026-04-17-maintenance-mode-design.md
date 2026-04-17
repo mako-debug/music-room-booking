@@ -57,17 +57,19 @@ interface MaintenanceSettings {
 
 全部邏輯用 Firestore rules + client-side onSnapshot 完成。估算：
 
-- 每個 client session 開啟時 1 次 doc read（subscribe `settings/maintenance`），之後 realtime 不計費
-- 每筆 booking 寫入 rules 多 1 次 doc read（`isMaintenanceActive()`），與既有 `getUserRole()` 規模相同
-- Admin 切換 1 次 write
+- **Client subscription**：每個 client session 開啟時 1 次 initial read；之後每次 admin 切換該 doc，每個 listener 多計 1 read（admin 切換極少，可忽略）
+- **Rules reads per booking write**：一次 `createBooking` tx 會同時觸發 `bookings` + N 個 `booking_locks`（N = 涵蓋 bucket 數，通常 1–4）的 rules 判定。每個 match block 各呼叫一次 `isMaintenanceActive()`；假設 Firestore **不跨 match block 去重**（保守估計），單 tx 多 (1 + N) 次 doc read。以每筆預約最多 4 bucket 計算，最壞 +5 reads/write
+- **Admin 切換**：1 write
 
-目前預約量級完全在 Spark 免費額度內（50k reads/day, 20k writes/day）。
+以目前預約量級（數十筆/天）換算：booking 新增每天 <50 筆 × 5 = <250 reads，完全在 Spark 免額度內（50k reads/day、20k writes/day、1 GB）。
+
+**超額監測**：本 feature 不主動加監測。若未來預約量級成長到接近免額度（>10k reads/day），再獨立評估（可能手段：custom claims 把 role 搬到 token 省 `getUserRole()` read、或升級付費方案）。
 
 ## 4. 元件與檔案異動
 
 ### 4.1 新增檔案
 
-- **`src/components/MaintenanceOverlay.tsx`** — 純 UI。全畫面 fixed overlay；顯示「系統維護中」標題、`message` 內文（空字串時 fallback 預設）、登出按鈕讓使用者可離開。
+- **`src/components/MaintenanceOverlay.tsx`** — 純 UI。全畫面 fixed overlay；顯示「系統維護中」標題與 `message` 內文（空字串時 fallback 預設）。**不含登出按鈕**（會擋登入的方案已被排除；加登出按鈕只會把使用者丟回 login，再登入還是看到 overlay，無意義）。
 - **`src/components/admin/MaintenanceSection.tsx`** — admin 控制面板區塊。包含：
   - 目前狀態顯示（啟用 / 關閉）
   - Message textarea（≤200 字）
@@ -77,15 +79,20 @@ interface MaintenanceSettings {
 ### 4.2 修改檔案
 
 - **`src/types/index.ts`** — 新增 `MaintenanceSettings` 型別。
-- **`src/components/AuthProvider.tsx`** — 在現有 `onSnapshot(users/{uid})` 旁再 subscribe `doc(db, 'settings', 'maintenance')`。Context 多回一個 `maintenance: MaintenanceSettings`（預設 `{ enabled: false, message: '' }`）。
-- **`src/components/AuthGuard.tsx`** — 在 render children 前分支：
+- **`src/components/AuthProvider.tsx`**：
+  - 在現有 `onAuthStateChanged` 的 `if (user)` 分支內，與 `unsubProfile` 並列建立 `unsubMaintenance = onSnapshot(doc(db, 'settings', 'maintenance'), ...)`
+  - `settings/maintenance` rules 要求 `request.auth != null`，因此 listener **必須** scoped to authed state（未登入時不建）
+  - 兩個 listener 同進同退：auth logout / 切換 user 時一起 teardown
+  - Context 擴充：`{ firebaseUser, appUser, loading, maintenance }`；預設值 `{ firebaseUser: null, appUser: null, loading: true, maintenance: { enabled: false, message: '' } }`
+  - **`loading` 語意**：為避免 flicker race，`loading` 要等 users profile snapshot **與** maintenance snapshot 都首次回來才置 false（兩個 listener 各自有 resolved flag；兩個都 true 才 `setLoading(false)`）
+- **`src/components/AuthGuard.tsx`** — `loading` 期間維持現有 spinner；resolved 後分支：
   ```
   if (maintenance.enabled && appUser?.role !== 'admin') {
     return <MaintenanceOverlay message={maintenance.message} />;
   }
   ```
   Admin 不受影響。Login 頁不經 AuthGuard，登入流程不被擋。
-- **`src/app/admin/page.tsx`** — 引入 `<MaintenanceSection>` 放在 `AdminContent` 頂端（使用者管理區塊之上）。
+- **`src/app/admin/page.tsx`** — 在 `AdminContent` 最上方（第一個區塊，於使用者管理區塊之上）引入 `<MaintenanceSection>`。
 - **`firestore.rules`**：
   - 新增 helper：
     ```
@@ -168,11 +175,14 @@ client 呼叫 createBooking() → runTransaction 發出
 - onSnapshot 接著送達 → overlay 蓋下
 - UX 有瑕疵但資料一致
 
-### 6.4 Admin 自己被降級
+### 6.4 Admin 自己被降級 / 單一 admin 鎖死
 
 - Admin role 被改成 teacher → AuthGuard 切到 overlay → 自己被鎖
 - 程式內**不提供**逃生艙（避免過度設計）
-- 恢復路徑：Firestore console 直接改 `settings/maintenance.enabled = false` 或改回 role
+- 恢復路徑（依能存取的身分排序）：
+  1. **另一位 admin**（建議維持 ≥ 2 位 admin 帳號作為 backup；單 admin 部署有真實的 lockout 風險）
+  2. **Firebase console 的 project owner / editor IAM 成員**：Admin SDK / console 的寫入操作 bypass security rules，可直接改 `settings/maintenance` 或 `users/{uid}.role`
+  3. 已知 admin 密碼但帳號被降級時：先從 Firebase console 改回 role，再登入即可
 
 ### 6.5 `message` 欄位安全
 
@@ -180,78 +190,64 @@ client 呼叫 createBooking() → runTransaction 發出
 - Admin 端 textarea 限制 200 字，避免 overlay 塞爆
 - 空字串 → overlay fallback「系統維護中，請稍後再試」
 
-## 7. Firestore rules 完整草稿
+## 7. Firestore rules 變更
+
+**實作方式**：`firestore.rules` 以 **in-place edit** 進行，**保留**既有註解（包含 #7 lock-squatting 防護的說明），只加新邏輯。下方片段只呈現異動部分，不是整份取代。
+
+### 7.1 新增 helper（`getUserRole()` 下方）
 
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    function isMaintenanceActive() {
-      return exists(/databases/$(database)/documents/settings/maintenance)
-        && get(/databases/$(database)/documents/settings/maintenance).data.enabled == true;
-    }
-
-    match /settings/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && getUserRole() == 'admin';
-    }
-
-    match /rooms/{roomId} {
-      allow read: if request.auth != null;
-    }
-
-    match /bookings/{bookingId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && getUserRole() in ['admin', 'teacher']
-        && (!isMaintenanceActive() || getUserRole() == 'admin');
-      allow update: if request.auth != null
-        && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin')
-        && (!isMaintenanceActive() || getUserRole() == 'admin');
-      allow delete: if request.auth != null
-        && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin')
-        && (!isMaintenanceActive() || getUserRole() == 'admin');
-    }
-
-    match /booking_locks/{lockId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && getUserRole() in ['admin', 'teacher']
-        && (request.resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin')
-        && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
-            .data.userId == request.resource.data.userId
-        && (!isMaintenanceActive() || getUserRole() == 'admin');
-      allow update: if false;
-      allow delete: if request.auth != null
-        && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin')
-        && (!isMaintenanceActive() || getUserRole() == 'admin');
-    }
-
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow update: if request.auth != null && getUserRole() == 'admin';
-      allow update: if request.auth != null
-        && request.auth.uid == userId
-        && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'active', 'email', 'uid', 'createdAt']);
-      allow create, delete: if request.auth != null && getUserRole() == 'admin';
-    }
-  }
+function isMaintenanceActive() {
+  return exists(/databases/$(database)/documents/settings/maintenance)
+    && get(/databases/$(database)/documents/settings/maintenance).data.enabled == true;
 }
 ```
 
-備註：`users` 的寫入**不加** maintenance guard。理由：
-- 本人改 displayName / colorIndex 等個資屬無害操作
-- Admin 操作（升降級、啟停用）在維運期間仍需可用
-- 若未來維運情境需要鎖 users 寫入，另案擴充
+### 7.2 新增 `settings/maintenance` match（不要用 `settings/{docId}` wildcard）
+
+```
+// 只鎖 maintenance 這一份；未來 settings/* 下若有敏感 doc，各自顯式宣告 rules
+match /settings/maintenance {
+  allow read: if request.auth != null;
+  allow write: if request.auth != null && getUserRole() == 'admin';
+}
+```
+
+理由：用 wildcard `settings/{docId}` 會讓未來新增的 `settings/pricing` 等 doc 預設可被所有登入者讀取，造成意外曝露。
+
+### 7.3 `/bookings/{bookingId}` 加 maintenance guard
+
+`create` / `update` / `delete` 三個 allow 條件各自追加：
+
+```
+&& (!isMaintenanceActive() || getUserRole() == 'admin')
+```
+
+例如 create：
+```
+allow create: if request.auth != null
+  && getUserRole() in ['admin', 'teacher']
+  && (!isMaintenanceActive() || getUserRole() == 'admin');
+```
+
+### 7.4 `/booking_locks/{lockId}` 加 maintenance guard
+
+`create` / `delete` 條件追加同一行。`update` 維持 `false`。
+`create` 的 `getAfter()` 交叉驗證保留（#7 防 DoS 的核心，不要動）。
+
+### 7.5 `/users/{userId}` **不加** maintenance guard（刻意）
+
+理由：
+- 本人改 displayName / colorIndex 等個資屬無害
+- Admin 操作（升降級、啟停用、$6.4 的逃生路徑 1）在維運期間必須可用
+- 若未來維運情境需要鎖 users 寫入（例如 migrate user schema），再獨立 issue 擴充
+
+### 7.6 一致性模型提醒
+
+- Client 的 `maintenance` state 來自 onSnapshot，rules 的 `isMaintenanceActive()` 來自 rules 執行當下 `get()`
+- 兩者 **eventually consistent**，不是 strongly consistent；切換瞬間存在 ~100ms 窗口（client 仍顯示正常 UI 但 rules 已 deny，或反之）
+- §6.3 的「開啟瞬間有人正按送出」即此窗口的實際表現
+- 此 feature 接受此行為；資料一致性由 rules 保證，UI 暫時不一致可接受
 
 ## 8. 部署順序
 
@@ -279,13 +275,21 @@ service cloud.firestore {
    - 訊息空白 → overlay 顯示 fallback「系統維護中，請稍後再試」
    - 訊息 200 字 → textarea 不溢位；overlay 正常換行
    - 非 admin 直接寫 `settings/maintenance` → rules 拒絕
+6. **切換瞬間 race（§6.3 情境）**：
+   - Teacher 先開啟 BookingModal 並停留
+   - Admin 同時開啟維運
+   - Teacher 按送出 → 應看到 permission-denied 錯誤，隨後 overlay 覆蓋整個畫面
+7. **Snapshot loading race**（避免 §4.2 提到的 flicker）：
+   - Teacher 關閉分頁、重新整理時，維運已開啟
+   - 期望：看到 `載入中…` 直到兩個 listener 都 resolved，接著直接進入 overlay（**不應**短暫看到正常課表）
 
 ## 10. 後續可能擴充（非本次範圍）
 
 - Audit log（startedBy / startedAt / 歷史紀錄）
 - Banner 模式（read-only 瀏覽 + 提示）
-- 分階段維運（只擋某些 collection）
+- 分階段維運（只擋某些 collection）；目前 `users` 寫入刻意不擋（§7.5），屬已知 gap
 - 排程維運 / 倒數計時
 - 擋登入（需 Identity Platform，付費）
+- 超額監測 / 告警（目前靠 Firebase console 手動查）
 
 皆為獨立 issue，待需求出現時再評估。
