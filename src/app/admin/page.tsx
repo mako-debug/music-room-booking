@@ -95,9 +95,6 @@ function AdminContent() {
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
 
-  const [migrateStatus, setMigrateStatus] = useState<string>('');
-  const [migrating, setMigrating] = useState(false);
-
   async function handleResetPassword() {
     setResetError('');
     setResetSuccess('');
@@ -142,34 +139,6 @@ function AdminContent() {
       setMessage(`已${action} ${user.displayName} 的帳號`);
     } catch (err) {
       setError(err instanceof Error ? err.message : `${action}失敗`);
-    }
-  }
-
-  async function handleMigrateLocks() {
-    if (!confirm('將為所有現有預約補建 booking_locks，跑第二次會跳過已建立的 lock。繼續？')) return;
-    setMigrating(true);
-    setMigrateStatus('');
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch('/api/admin/migrate-locks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callerToken: token }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || '未知錯誤');
-      }
-      setMigrateStatus(
-        `完成：total=${data.total}、migrated=${data.migrated}、skipped=${data.skipped}、errors=${data.errors.length}`
-      );
-      if (data.errors.length > 0) {
-        console.error('Migration errors:', data.errors);
-      }
-    } catch (err) {
-      setMigrateStatus(`失敗：${err instanceof Error ? err.message : '未知錯誤'}`);
-    } finally {
-      setMigrating(false);
     }
   }
 
@@ -361,18 +330,6 @@ function AdminContent() {
       </header>
 
       <main className="max-w-lg mx-auto p-4 space-y-6">
-        <section className="border border-yellow-400 bg-yellow-50 rounded p-4 mb-4">
-          <h2 className="text-sm font-semibold text-yellow-900 mb-2">維運工具（用完請刪）</h2>
-          <button
-            onClick={handleMigrateLocks}
-            disabled={migrating}
-            className="bg-yellow-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-yellow-700 disabled:opacity-50"
-          >
-            {migrating ? '執行中...' : 'Backfill booking locks'}
-          </button>
-          {migrateStatus && <p className="text-sm text-gray-900 mt-2">{migrateStatus}</p>}
-        </section>
-
         {/* Create user form */}
         <div className="bg-white rounded-lg shadow p-5">
           <h2 className="text-base font-bold text-gray-900 mb-4">新增帳號</h2>
