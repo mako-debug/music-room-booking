@@ -5,6 +5,11 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    function isMaintenanceActive() {
+      return exists(/databases/$(database)/documents/settings/maintenance)
+        && get(/databases/$(database)/documents/settings/maintenance).data.enabled == true;
+    }
+
     match /rooms/{roomId} {
       allow read: if request.auth != null;
     }
