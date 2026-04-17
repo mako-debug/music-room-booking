@@ -8,7 +8,6 @@ import {
   doc,
   getDocs,
   runTransaction,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -154,9 +153,17 @@ export async function updateBooking(
   await updateDoc(doc(db, 'bookings', bookingId), updates);
 }
 
-// Delete a single booking
-export async function deleteBooking(bookingId: string): Promise<void> {
-  await deleteDoc(doc(db, 'bookings', bookingId));
+// Delete a single booking and its bucket locks atomically
+export async function deleteBooking(booking: Booking): Promise<void> {
+  const buckets = expandBuckets(booking.startTime, booking.endTime);
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'bookings', booking.id));
+  for (const b of buckets) {
+    batch.delete(
+      doc(db, 'booking_locks', makeLockId(booking.roomId, booking.date, b))
+    );
+  }
+  await batch.commit();
 }
 
 // Delete all bookings in a repeat group from a given date onward
