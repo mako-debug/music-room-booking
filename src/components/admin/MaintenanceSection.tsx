@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
@@ -10,8 +10,14 @@ const MAX_MESSAGE_LEN = 200;
 export function MaintenanceSection() {
   const { maintenance } = useAuth();
   const [draftMessage, setDraftMessage] = useState(maintenance.message);
+  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Sync draft from remote only when user hasn't typed; prevents overwriting concurrent admin edits
+  useEffect(() => {
+    if (!dirty) setDraftMessage(maintenance.message);
+  }, [maintenance.message, dirty]);
 
   async function setEnabled(enabled: boolean) {
     setError('');
@@ -23,6 +29,7 @@ export function MaintenanceSection() {
         { enabled, message: draftMessage.trim() },
         { merge: true }
       );
+      setDirty(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : '寫入失敗');
     } finally {
@@ -48,7 +55,10 @@ export function MaintenanceSection() {
       </label>
       <textarea
         value={draftMessage}
-        onChange={(e) => setDraftMessage(e.target.value.slice(0, MAX_MESSAGE_LEN))}
+        onChange={(e) => {
+          setDraftMessage(e.target.value.slice(0, MAX_MESSAGE_LEN));
+          setDirty(true);
+        }}
         rows={3}
         className="w-full border rounded px-3 py-2 text-sm text-gray-900"
         placeholder="例：系統升級中，預計 30 分鐘"
