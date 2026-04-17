@@ -31,3 +31,8 @@ export interface Booking {
 }
 
 export type BookingInput = Omit<Booking, 'id' | 'createdAt'>;
+
+export interface MaintenanceSettings {
+  enabled: boolean;
+  message: string;
+}

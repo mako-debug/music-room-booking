@@ -5,6 +5,17 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    function isMaintenanceActive() {
+      return exists(/databases/$(database)/documents/settings/maintenance)
+        && get(/databases/$(database)/documents/settings/maintenance).data.enabled == true;
+    }
+
+    // 只鎖 maintenance 這一份；未來 settings/* 下若有敏感 doc，各自顯式宣告 rules
+    match /settings/maintenance {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && getUserRole() == 'admin';
+    }
+
     match /rooms/{roomId} {
       allow read: if request.auth != null;
     }
@@ -12,13 +23,16 @@ service cloud.firestore {
     match /bookings/{bookingId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-        && getUserRole() in ['admin', 'teacher'];
+        && getUserRole() in ['admin', 'teacher']
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
       allow update: if request.auth != null
         && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin');
+            || getUserRole() == 'admin')
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
       allow delete: if request.auth != null
         && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin');
+            || getUserRole() == 'admin')
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
     }
 
     match /booking_locks/{lockId} {
@@ -32,7 +46,8 @@ service cloud.firestore {
         && (request.resource.data.userId == request.auth.uid
             || getUserRole() == 'admin')
         && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
-            .data.userId == request.resource.data.userId;
+            .data.userId == request.resource.data.userId
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
 
       // lock 一旦建立不該修改
       allow update: if false;
@@ -40,7 +55,8 @@ service cloud.firestore {
       // 擁有者或 admin 可刪（同 bookings delete 邏輯）
       allow delete: if request.auth != null
         && (resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin');
+            || getUserRole() == 'admin')
+        && (!isMaintenanceActive() || getUserRole() == 'admin');
     }
 
     match /users/{userId} {

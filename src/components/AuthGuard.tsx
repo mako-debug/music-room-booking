@@ -3,9 +3,10 @@
 import { useAuth } from './AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { MaintenanceOverlay } from './MaintenanceOverlay';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { firebaseUser, loading } = useAuth();
+  const { firebaseUser, appUser, loading, maintenance } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -23,6 +24,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!firebaseUser) return null;
+
+  // Maintenance overlay: blocks UI for non-admin when enabled (spec §4.2)
+  if (maintenance.enabled && appUser?.role !== 'admin') {
+    return <MaintenanceOverlay message={maintenance.message} />;
+  }
 
   return <>{children}</>;
 }
