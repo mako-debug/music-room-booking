@@ -161,9 +161,28 @@ npm run dev
 
 ### Firebase 設定
 
+首次設定：
+
 1. **Authentication** → 啟用「電子郵件/密碼」
-2. **Firestore** → 貼上 `firestore.rules` 的安全規則並發布
-3. **Firestore → 索引** → 建立 `firestore.indexes.json` 中的 2 個複合索引
+2. **Firestore** → 首次建立資料庫
+
+後續 rules 與 indexes 更新透過 CLI 部署：
+
+```bash
+# 首次使用需登入
+npx firebase-tools login
+
+# 部署 Firestore 規則
+npx firebase-tools deploy --only firestore:rules
+
+# 部署 Firestore 索引
+npx firebase-tools deploy --only firestore:indexes
+
+# 一次部署兩者
+npx firebase-tools deploy --only firestore
+```
+
+專案設定（`.firebaserc`、`firebase.json`）已納入版控，無須重新 `firebase init`。
 
 ## 費用
 
