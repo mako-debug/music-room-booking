@@ -3,12 +3,10 @@ import {
   query,
   where,
   onSnapshot,
-  addDoc,
   updateDoc,
   deleteDoc,
   doc,
   getDocs,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   runTransaction,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   writeBatch,
@@ -47,23 +45,6 @@ export function subscribeToWeekBookings(
   });
 }
 
-// Check if a time slot conflicts with existing bookings
-function hasConflict(
-  existingBookings: Booking[],
-  roomId: string,
-  date: string,
-  startTime: string,
-  endTime: string
-): boolean {
-  return existingBookings.some(
-    (b) =>
-      b.roomId === roomId &&
-      b.date === date &&
-      b.startTime < endTime &&
-      b.endTime > startTime
-  );
-}
-
 // Validate booking date is within 1 month from today
 function isWithinOneMonth(dateStr: string): boolean {
   const today = new Date();
@@ -76,20 +57,17 @@ function isWithinOneMonth(dateStr: string): boolean {
 
 const BUCKET_MINUTES = 30;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function toMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function fromMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function assertAligned(time: string): void {
   if (toMinutes(time) % BUCKET_MINUTES !== 0) {
     throw new Error('時間必須以 30 分鐘為單位');
@@ -98,7 +76,6 @@ function assertAligned(time: string): void {
 
 // 展開 booking 涵蓋的所有 30 分鐘 bucket startTime
 // 例：expandBuckets("09:00", "10:30") → ["09:00", "09:30", "10:00"]
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function expandBuckets(startTime: string, endTime: string): string[] {
   const start = toMinutes(startTime);
   const end = toMinutes(endTime);
@@ -109,32 +86,41 @@ function expandBuckets(startTime: string, endTime: string): string[] {
   return buckets;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function makeLockId(roomId: string, date: string, bucket: string): string {
   return `${roomId}_${date}_${bucket}`;
 }
 
-// Create a booking with conflict check
+// Create a booking with atomic conflict check via bucketed locks
 export async function createBooking(input: BookingInput): Promise<void> {
   if (!isWithinOneMonth(input.date)) {
     throw new Error('只能預約未來 1 個月內的時段');
   }
-
-  const q = query(
-    collection(db, 'bookings'),
-    where('roomId', '==', input.roomId),
-    where('date', '==', input.date)
-  );
-  const snapshot = await getDocs(q);
-  const existing = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Booking));
-
-  if (hasConflict(existing, input.roomId, input.date, input.startTime, input.endTime)) {
-    throw new Error('此時段已有預約');
+  assertAligned(input.startTime);
+  assertAligned(input.endTime);
+  if (toMinutes(input.endTime) <= toMinutes(input.startTime)) {
+    throw new Error('結束時間必須晚於開始時間');
   }
 
-  await addDoc(collection(db, 'bookings'), {
-    ...input,
-    createdAt: new Date().toISOString(),
+  const createdAt = new Date().toISOString();
+  const buckets = expandBuckets(input.startTime, input.endTime);
+  const lockRefs = buckets.map((b) =>
+    doc(db, 'booking_locks', makeLockId(input.roomId, input.date, b))
+  );
+
+  await runTransaction(db, async (tx) => {
+    const lockSnaps = await Promise.all(lockRefs.map((ref) => tx.get(ref)));
+    if (lockSnaps.some((snap) => snap.exists())) {
+      throw new Error('此時段已有預約');
+    }
+    const bookingRef = doc(collection(db, 'bookings'));
+    tx.set(bookingRef, { ...input, createdAt });
+    for (const lockRef of lockRefs) {
+      tx.set(lockRef, {
+        bookingId: bookingRef.id,
+        userId: input.userId,
+        createdAt,
+      });
+    }
   });
 }
 
