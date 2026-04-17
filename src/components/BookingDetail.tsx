@@ -83,7 +83,7 @@ export function BookingDetail({ booking, onClose, onDeleted, teachers }: Booking
     if (!confirm('確定要取消這筆預約嗎？')) return;
     setDeleting(true);
     try {
-      await deleteBooking(booking.id);
+      await deleteBooking(booking);
       onDeleted();
       onClose();
     } catch {

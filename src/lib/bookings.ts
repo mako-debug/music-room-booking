@@ -3,11 +3,11 @@ import {
   query,
   where,
   onSnapshot,
-  addDoc,
   updateDoc,
-  deleteDoc,
   doc,
   getDocs,
+  runTransaction,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Booking, BookingInput } from '@/types';
@@ -43,23 +43,6 @@ export function subscribeToWeekBookings(
   });
 }
 
-// Check if a time slot conflicts with existing bookings
-function hasConflict(
-  existingBookings: Booking[],
-  roomId: string,
-  date: string,
-  startTime: string,
-  endTime: string
-): boolean {
-  return existingBookings.some(
-    (b) =>
-      b.roomId === roomId &&
-      b.date === date &&
-      b.startTime < endTime &&
-      b.endTime > startTime
-  );
-}
-
 // Validate booking date is within 1 month from today
 function isWithinOneMonth(dateStr: string): boolean {
   const today = new Date();
@@ -70,27 +53,72 @@ function isWithinOneMonth(dateStr: string): boolean {
   return bookingDate >= today && bookingDate <= oneMonthLater;
 }
 
-// Create a booking with conflict check
+const BUCKET_MINUTES = 30;
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function fromMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+function assertAligned(time: string): void {
+  if (toMinutes(time) % BUCKET_MINUTES !== 0) {
+    throw new Error('時間必須以 30 分鐘為單位');
+  }
+}
+
+// 展開 booking 涵蓋的所有 30 分鐘 bucket startTime
+// 例：expandBuckets("09:00", "10:30") → ["09:00", "09:30", "10:00"]
+function expandBuckets(startTime: string, endTime: string): string[] {
+  const start = toMinutes(startTime);
+  const end = toMinutes(endTime);
+  const buckets: string[] = [];
+  for (let m = start; m < end; m += BUCKET_MINUTES) {
+    buckets.push(fromMinutes(m));
+  }
+  return buckets;
+}
+
+function makeLockId(roomId: string, date: string, bucket: string): string {
+  return `${roomId}_${date}_${bucket}`;
+}
+
+// Create a booking with atomic conflict check via bucketed locks
 export async function createBooking(input: BookingInput): Promise<void> {
   if (!isWithinOneMonth(input.date)) {
     throw new Error('只能預約未來 1 個月內的時段');
   }
-
-  const q = query(
-    collection(db, 'bookings'),
-    where('roomId', '==', input.roomId),
-    where('date', '==', input.date)
-  );
-  const snapshot = await getDocs(q);
-  const existing = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Booking));
-
-  if (hasConflict(existing, input.roomId, input.date, input.startTime, input.endTime)) {
-    throw new Error('此時段已有預約');
+  assertAligned(input.startTime);
+  assertAligned(input.endTime);
+  if (toMinutes(input.endTime) <= toMinutes(input.startTime)) {
+    throw new Error('結束時間必須晚於開始時間');
   }
 
-  await addDoc(collection(db, 'bookings'), {
-    ...input,
-    createdAt: new Date().toISOString(),
+  const createdAt = new Date().toISOString();
+  const buckets = expandBuckets(input.startTime, input.endTime);
+  const lockRefs = buckets.map((b) =>
+    doc(db, 'booking_locks', makeLockId(input.roomId, input.date, b))
+  );
+
+  await runTransaction(db, async (tx) => {
+    const lockSnaps = await Promise.all(lockRefs.map((ref) => tx.get(ref)));
+    if (lockSnaps.some((snap) => snap.exists())) {
+      throw new Error('此時段已有預約');
+    }
+    const bookingRef = doc(collection(db, 'bookings'));
+    tx.set(bookingRef, { ...input, createdAt });
+    for (const lockRef of lockRefs) {
+      tx.set(lockRef, {
+        bookingId: bookingRef.id,
+        userId: input.userId,
+        createdAt,
+      });
+    }
   });
 }
 
@@ -124,12 +152,21 @@ export async function updateBooking(
   await updateDoc(doc(db, 'bookings', bookingId), updates);
 }
 
-// Delete a single booking
-export async function deleteBooking(bookingId: string): Promise<void> {
-  await deleteDoc(doc(db, 'bookings', bookingId));
+// Delete a single booking and its bucket locks atomically
+export async function deleteBooking(booking: Booking): Promise<void> {
+  const buckets = expandBuckets(booking.startTime, booking.endTime);
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'bookings', booking.id));
+  for (const b of buckets) {
+    batch.delete(
+      doc(db, 'booking_locks', makeLockId(booking.roomId, booking.date, b))
+    );
+  }
+  await batch.commit();
 }
 
-// Delete all bookings in a repeat group from a given date onward
+// Delete all bookings in a repeat group from a given date onward,
+// along with all their bucket locks, in one atomic batch
 export async function deleteRepeatBookings(
   repeatGroupId: string,
   fromDate: string
@@ -140,10 +177,18 @@ export async function deleteRepeatBookings(
     where('date', '>=', fromDate)
   );
   const snapshot = await getDocs(q);
-  let count = 0;
+  if (snapshot.empty) return 0;
+
+  const batch = writeBatch(db);
   for (const d of snapshot.docs) {
-    await deleteDoc(d.ref);
-    count++;
+    const b = { id: d.id, ...d.data() } as Booking;
+    batch.delete(d.ref);
+    for (const bucket of expandBuckets(b.startTime, b.endTime)) {
+      batch.delete(
+        doc(db, 'booking_locks', makeLockId(b.roomId, b.date, bucket))
+      );
+    }
   }
-  return count;
+  await batch.commit();
+  return snapshot.size;
 }
