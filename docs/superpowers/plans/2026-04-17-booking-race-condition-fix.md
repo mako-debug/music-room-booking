@@ -499,7 +499,7 @@ async function handleMigrateLocks() {
 
 - [ ] **Step 2：在 `AdminContent` 的 JSX 回傳內加入維運區塊**
 
-在 `return (` 的主要內容區內（約 line 323 之後），選一個明顯位置（建議最上方 `<h1>` 管理頁標題之後），新增：
+在 `return (` 結構中，`<main>`（位於 `<header>` 之後）的**第一個子元素**位置插入以下 JSX（即維運區塊放在 `<main>` 的最上方、其他既有區塊之前）。`<main>` 既有 class 是 `max-w-lg mx-auto p-4 space-y-6`，`space-y-6` 會自動處理垂直間距，因此以下 JSX 末尾 `mb-4` 可保留作為雙保險：
 ```tsx
 <section className="border border-yellow-400 bg-yellow-50 rounded p-4 mb-4">
   <h2 className="text-sm font-semibold text-yellow-900 mb-2">維運工具（用完請刪）</h2>
@@ -618,6 +618,10 @@ PR reviewer 檢視過後 merge 到 main（或直接 push，依專案 flow）。
 
 對剛剛那筆預約的**同 room、同 date、同 startTime** 再建一次 → 彈出「此時段已有預約」。
 
+- [ ] **Step 2b：時間重疊但 startTime 不同也被擋（驗 bucketed locks 主要價值）**
+
+先預約 09:00–10:00 → 再預約 09:30–10:30（不同 startTime、但時段重疊） → 第二筆應被擋（「此時段已有預約」）。這是 bucketed locks 設計的核心場景（spec §3.1）。
+
 - [ ] **Step 3：刪除後可再預約**
 
 從 BookingDetail 刪掉剛剛那筆 → 確認 `bookings` 與對應 `booking_locks` 一起消失 → 再預約同時段 → 成功。
@@ -692,11 +696,11 @@ gh pr create --title "chore: 移除 migrate-locks 一次性工具" --body "Issue
 
 ## Definition of Done
 
-- [x] 所有 Chunk 1 commits 在 branch 上
-- [x] 所有 Chunk 2 commits 在 branch 上
+- [ ] 所有 Chunk 1 commits 在 branch 上
+- [ ] 所有 Chunk 2 commits 在 branch 上
 - [ ] PR merged、code 已部署
 - [ ] Rules 已部署
 - [ ] Migration 執行成功（`errors: []`）
-- [ ] Smoke test 6 項全綠
+- [ ] Smoke test 全綠（含 Task 3.5 所有子項）
 - [ ] Migration 工具拆除 PR 已合併
 - [ ] Issue #7 關閉
