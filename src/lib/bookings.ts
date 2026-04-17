@@ -8,6 +8,10 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  runTransaction,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Booking, BookingInput } from '@/types';
@@ -68,6 +72,46 @@ function isWithinOneMonth(dateStr: string): boolean {
   const oneMonthLater = new Date(today);
   oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
   return bookingDate >= today && bookingDate <= oneMonthLater;
+}
+
+const BUCKET_MINUTES = 30;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function fromMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function assertAligned(time: string): void {
+  if (toMinutes(time) % BUCKET_MINUTES !== 0) {
+    throw new Error('時間必須以 30 分鐘為單位');
+  }
+}
+
+// 展開 booking 涵蓋的所有 30 分鐘 bucket startTime
+// 例：expandBuckets("09:00", "10:30") → ["09:00", "09:30", "10:00"]
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function expandBuckets(startTime: string, endTime: string): string[] {
+  const start = toMinutes(startTime);
+  const end = toMinutes(endTime);
+  const buckets: string[] = [];
+  for (let m = start; m < end; m += BUCKET_MINUTES) {
+    buckets.push(fromMinutes(m));
+  }
+  return buckets;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function makeLockId(roomId: string, date: string, bucket: string): string {
+  return `${roomId}_${date}_${bucket}`;
 }
 
 // Create a booking with conflict check
