@@ -4,7 +4,6 @@ import {
   where,
   onSnapshot,
   updateDoc,
-  deleteDoc,
   doc,
   getDocs,
   runTransaction,
@@ -166,7 +165,8 @@ export async function deleteBooking(booking: Booking): Promise<void> {
   await batch.commit();
 }
 
-// Delete all bookings in a repeat group from a given date onward
+// Delete all bookings in a repeat group from a given date onward,
+// along with all their bucket locks, in one atomic batch
 export async function deleteRepeatBookings(
   repeatGroupId: string,
   fromDate: string
@@ -177,10 +177,18 @@ export async function deleteRepeatBookings(
     where('date', '>=', fromDate)
   );
   const snapshot = await getDocs(q);
-  let count = 0;
+  if (snapshot.empty) return 0;
+
+  const batch = writeBatch(db);
   for (const d of snapshot.docs) {
-    await deleteDoc(d.ref);
-    count++;
+    const b = { id: d.id, ...d.data() } as Booking;
+    batch.delete(d.ref);
+    for (const bucket of expandBuckets(b.startTime, b.endTime)) {
+      batch.delete(
+        doc(db, 'booking_locks', makeLockId(b.roomId, b.date, bucket))
+      );
+    }
   }
-  return count;
+  await batch.commit();
+  return snapshot.size;
 }
