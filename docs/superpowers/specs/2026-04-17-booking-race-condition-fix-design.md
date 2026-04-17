@@ -57,12 +57,16 @@
 // 例： "room1_2026-04-20_09:00"
 interface BookingLock {
   bookingId: string;   // 對應 bookings doc id
-  userId: string;      // 建立者 uid（給 rules 判斷擁有者）
-  createdAt: string;   // ISO string
+  userId: string;      // = 對應 booking.userId（擁有該預約的老師 uid），
+                       // 並非「建立 lock 的人」。Admin 代 teacher 建立時，
+                       // 仍寫 teacher 的 uid，rules 才能讓 teacher 自行刪除
+  createdAt: string;   // ISO string，與對應 booking.createdAt 共用同一時間
 }
 ```
 
 不儲存 `roomId` / `date` / `bucketTime`——可由 docId 解析，節省空間。
+
+**不需新 Firestore index**：`booking_locks` 僅以 docId 存取，無 query 操作。
 
 ## 5. API 變更（`src/lib/bookings.ts`）
 
@@ -86,13 +90,14 @@ function assertAligned(time: string): void
 
 - 驗證 `isWithinOneMonth(date)`
 - `assertAligned(startTime)` / `assertAligned(endTime)`
+- 在 tx 外先計算 `const createdAt = new Date().toISOString()`，booking 與所有 lock 共用同一時間（便於 audit / debug）
 - `runTransaction`：
   1. 展開所有 bucket，組 lockRefs
   2. `tx.get` 所有 lockRef
   3. 任一 exists → throw `'此時段已有預約'`
   4. 產生 newBookingRef（`doc(collection(db, 'bookings'))`）
-  5. `tx.set(newBookingRef, { ...input, createdAt: new Date().toISOString() })`
-  6. 每個 bucket：`tx.set(lockRef, { bookingId, userId, createdAt })`
+  5. `tx.set(newBookingRef, { ...input, createdAt })`
+  6. 每個 bucket：`tx.set(lockRef, { bookingId: newBookingRef.id, userId: input.userId, createdAt })`
 - 刪除 `hasConflict` 輔助函式（不再需要）
 
 ### 5.3 `deleteBooking`（改簽名）
@@ -108,9 +113,10 @@ async function deleteBooking(booking: Booking): Promise<void>
 
 ### 5.4 `deleteRepeatBookings`（改為 batch）
 
+- **簽名不變**：`async function deleteRepeatBookings(repeatGroupId: string, fromDate: string): Promise<number>`，仍回傳已刪除筆數
 - `query` 取所有 bookings
 - 單一 `writeBatch`：每筆 booking + 每筆的所有 bucket locks
-- batch 上限 500 ops；目前 repeat 上限 4 週 × 最多 4 bucket = 20 ops，遠低於上限
+- batch 上限 500 ops；目前 repeat 上限 4 週 × 最多 4 bucket/週 + 4 bookings = 20 ops，遠低於上限
 
 ### 5.5 `updateBooking`
 
@@ -120,6 +126,7 @@ async function deleteBooking(booking: Booking): Promise<void>
 
 - `BookingModal.tsx`：無變更
 - `BookingDetail.tsx:86`：`deleteBooking(booking.id)` → `deleteBooking(booking)`
+- 已 grep 確認 `deleteBooking` 在 `src/` 內僅此一處呼叫（`src/lib/bookings.ts` 為定義端，無其他呼叫點）
 
 ## 6. Firestore Rules
 
@@ -165,7 +172,17 @@ match /booking_locks/{lockId} {
        lockSnap = tx.get(lockRef)
        if (!lockSnap.exists) tx.set(lockRef, { bookingId, userId, createdAt: now })
      ```
-  3. 累計 `{ total, migrated, skipped, errors[] }`，回 JSON
+  3. 累計並回傳 JSON：
+     ```ts
+     {
+       success: true,
+       total: number,       // 掃過的 bookings 筆數
+       migrated: number,    // 實際新建 lock 的 bookings 數
+       skipped: number,     // booking 已有完整 locks 或已被刪
+       errors: Array<{ bookingId: string; message: string }>
+     }
+     ```
+     失敗 / 未授權則回 `{ success: false, error: string }` + 對應 HTTP status（比照 `/api/admin/update-user`）
 
 ### 7.2 為何 tx-per-booking 而非 batch
 
@@ -202,7 +219,13 @@ match /booking_locks/{lockId} {
 4. 做最小 smoke test（見 §10）
 5. 另開 PR 拆除 migration route 與按鈕
 
-**注意**：第 1 步完成後、第 2 步完成前，新 booking 邏輯**保護不完整**（看不到舊 booking 的 lock），所以兩步要緊接。若用量尚低，可選擇低流量時段執行。
+**注意**：第 1 步完成後、第 2 步完成前，新 booking 邏輯**保護不完整**（看不到舊 booking 的 lock），所以兩步要**在分鐘級內緊接完成**（admin 部署完立刻打開 `/admin` 頁面按按鈕，不要拖到隔天）。若用量尚低，可選擇低流量時段執行。
+
+**Rules 部署**：`firestore.rules` 的修改透過 Firebase CLI 部署：
+```bash
+firebase deploy --only firestore:rules
+```
+（專案已於 commit `e192608` 設好 CLI，不需額外配置）
 
 ## 10. 驗證（手動 smoke test）
 
@@ -213,6 +236,7 @@ match /booking_locks/{lockId} {
 3. 刪除單筆預約後可再次預約同時段
 4. 重複預約建立 & 刪除正常
 5. Migration 跑一次無錯、重跑為 no-op
+6. Admin 以 teacher 身分代建預約後，該 teacher 可自行刪除（驗證 lock 的 `userId` 寫入正確）
 
 併發 / rules / 邊界情境：實作邏輯正確即視為完成，不強制實測。
 
