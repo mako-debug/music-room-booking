@@ -21,6 +21,24 @@ service cloud.firestore {
             || getUserRole() == 'admin');
     }
 
+    match /booking_locks/{lockId} {
+      allow read: if request.auth != null;
+
+      // 建立：teacher/admin 可建；lock 的 userId 必須是自己（admin 可代建）
+      allow create: if request.auth != null
+        && getUserRole() in ['admin', 'teacher']
+        && (request.resource.data.userId == request.auth.uid
+            || getUserRole() == 'admin');
+
+      // lock 一旦建立不該修改
+      allow update: if false;
+
+      // 擁有者或 admin 可刪（同 bookings delete 邏輯）
+      allow delete: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || getUserRole() == 'admin');
+    }
+
     match /users/{userId} {
       allow read: if request.auth != null;
 
