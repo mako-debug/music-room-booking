@@ -43,3 +43,32 @@ UI grid 只有 `HH:00` / `HH:30`；duration 選項 30/60/90/120。後端 `create
 
 ### 併發測試的 cost
 Firestore 端到端併發驗證在本機很難重現；race 觸發窗口常在毫秒內。寫新 rules / tx 邏輯時，靠 code inspection + 部署後 smoke test，不要指望 local repro。
+
+## Sharp edges（從 Issue #10 maintenance mode 學到的）
+
+### `onSnapshot` listener 生命週期：scoped 到 authed state
+若 listener 讀的 collection 被 `request.auth != null` rules 保護（e.g. `settings/maintenance`），**必須**放在 `onAuthStateChanged` 的 `if (user)` 分支內建立，否則 mount 瞬間 fire 會吃 `permission-denied`。Logout / user-switch 時要成對 teardown。
+參考：`src/components/AuthProvider.tsx` 內 `unsubProfile` / `unsubMaintenance` 的管理。
+
+### `loading` 聚合多個 snapshot：全部 resolved 才清旗標
+AuthProvider 有 N 個 `onSnapshot`（profile、maintenance …）時，`loading` 要等**全部**首次 snapshot 都回來才設 `false`；否則 `AuthGuard` 可能在某個 listener 還沒到時就 render children，出現非 admin 短暫看到課表再跳 overlay 的 flicker race。目前實作用 closure-scoped `let xxxResolved` flags + `tryClearLoading()` helper（不是 state / ref，這樣 user-switch 時 flags 會跟著 callback 重新建立）。
+
+### Rules `match` 用精準 path，不要 wildcard
+`match /settings/maintenance { ... }` 而非 `match /settings/{docId}`。Wildcard 會讓未來新增的 `settings/pricing` 等 doc 預設可被所有登入者讀取，意外曝露敏感資訊。每加一個 `settings/*` doc 都要獨立宣告 rules。
+
+### Firebase CLI 沒有 rules `--dry-run`
+`firebase deploy --only firestore:rules --dry-run` **不存在**；`firebase firestore:rules:release` 也不存在。別寫在 plan 裡。驗證途徑：
+- 輕度：編輯器肉眼 check 括號 / 語法
+- 中度：`npx firebase emulators:start --only firestore` 會 compile 並報錯（需 JDK 11+）
+- 重度：直接 `firebase deploy --only firestore:rules` — server-side compile broken 會拒絕 release，等同免費 validating deploy
+
+### 可被 rules 擋到的操作，client 端不要再做 pre-check
+Maintenance guard 的真防護是 rules；`createBooking` 不需另外呼叫 `getDoc('settings/maintenance')` 做 client-side pre-check（與 overlay 的 UX 層疊床架屋、且還是會被 rules 擋）。Overlay 純 UX，rules 純真防護，兩層職責分離。
+
+### Client form + onSnapshot：dirty-flag 防並發覆寫
+若 admin form 的 draft state 來自 `useState(context.value)` 而 context 又會被 onSnapshot 即時更新，**單純用 initial seed 會 stale**：另一個 admin 改了 message，本地 draft 不動；本 admin 按儲存就把對方新訊息蓋掉。
+解法：加 `dirty: boolean` flag + `useEffect(() => { if (!dirty) setDraft(context.value); }, [context.value, dirty])`；onChange 設 `dirty = true`；save 成功後 `setDirty(false)` 讓下次 snapshot 可再 sync。
+參考：`src/components/admin/MaintenanceSection.tsx`。
+
+### 完整設計與決策過程
+`docs/superpowers/specs/2026-04-17-maintenance-mode-design.md` 與 `docs/superpowers/plans/2026-04-17-maintenance-mode.md`。
