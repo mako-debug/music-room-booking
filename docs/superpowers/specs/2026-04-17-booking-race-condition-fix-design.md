@@ -136,10 +136,15 @@ async function deleteBooking(booking: Booking): Promise<void>
 match /booking_locks/{lockId} {
   allow read: if request.auth != null;
 
+  // 建立：teacher/admin 可建；lock 的 userId 必須是自己（admin 可代建）；
+  // 且 lock 必須指到同 tx 建立（或既存）的 booking，且 userId 一致，
+  // 防止直接建 lock 卡時段而不建 booking 的 DoS（#7 後續硬化）
   allow create: if request.auth != null
     && getUserRole() in ['admin', 'teacher']
     && (request.resource.data.userId == request.auth.uid
-        || getUserRole() == 'admin');
+        || getUserRole() == 'admin')
+    && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
+        .data.userId == request.resource.data.userId;
 
   allow update: if false;
 
@@ -153,6 +158,7 @@ match /booking_locks/{lockId} {
 - 建立時檢查 `userId == auth.uid 或 admin`——支援 admin 代 teacher 建立預約的情境（`BookingModal` 有此流程）
 - `update` 一律禁止：lock 一旦建立不應修改
 - `delete` 同 bookings：擁有者或 admin
+- `getAfter()` 而非 `exists()`：`exists()` 評估 tx commit **前**的狀態，會導致 happy-path `createBooking` tx（同時建立 booking + locks）在 lock rule 檢查 booking 是否存在時回傳 false。`getAfter()` 評估 commit **後**狀態，可看見同 tx 建立的 booking，符合實際流程
 
 ## 7. Migration
 

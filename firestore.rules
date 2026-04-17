@@ -24,11 +24,15 @@ service cloud.firestore {
     match /booking_locks/{lockId} {
       allow read: if request.auth != null;
 
-      // 建立：teacher/admin 可建；lock 的 userId 必須是自己（admin 可代建）
+      // 建立：teacher/admin 可建；lock 的 userId 必須是自己（admin 可代建）；
+      // 且 lock 必須指到同 tx 建立（或既存）的 booking，且 userId 一致，
+      // 防止直接建 lock 卡時段而不建 booking 的 DoS（#7 後續硬化）
       allow create: if request.auth != null
         && getUserRole() in ['admin', 'teacher']
         && (request.resource.data.userId == request.auth.uid
-            || getUserRole() == 'admin');
+            || getUserRole() == 'admin')
+        && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
+            .data.userId == request.resource.data.userId;
 
       // lock 一旦建立不該修改
       allow update: if false;
