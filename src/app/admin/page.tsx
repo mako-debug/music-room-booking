@@ -25,6 +25,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { AppUser, UserRole } from '@/types';
 import { TEACHER_COLORS } from '@/lib/colors';
 import Link from 'next/link';
+import { MaintenanceSection } from '@/components/admin/MaintenanceSection';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -330,6 +331,7 @@ function AdminContent() {
       </header>
 
       <main className="max-w-lg mx-auto p-4 space-y-6">
+        <MaintenanceSection />
         {/* Create user form */}
         <div className="bg-white rounded-lg shadow p-5">
           <h2 className="text-base font-bold text-gray-900 mb-4">新增帳號</h2>
